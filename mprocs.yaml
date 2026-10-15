@@ -1,0 +1,28 @@
+# Development processes. Requires ../sshx (branch `platform`).
+# prettier-ignore
+procs:
+  sshx-server:
+    cwd: ../sshx
+    shell: >-
+      cargo run --bin sshx-server --
+      --port 8051 --listen 127.0.0.1
+      --secret dev-secret
+      --override-origin http://127.0.0.1:8051
+  platform:
+    shell: >-
+      cargo run --
+      --listen 127.0.0.1:8060
+      --sshx-server http://127.0.0.1:8051
+      --database sqlite://platform.db
+  web:
+    shell: npm run dev
+  # Start after creating a machine token in the UI:
+  #   SSHX_PLATFORM_TOKEN=smt_….<key> mprocs (then start this process)
+  client:
+    cwd: ../sshx
+    shell: >-
+      cargo run --bin sshx --
+      --server http://127.0.0.1:8051
+      --platform http://localhost:5180
+      --no-auto-update
+    autostart: false

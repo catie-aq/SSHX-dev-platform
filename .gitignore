@@ -1,0 +1,10 @@
+/target
+/node_modules
+/.svelte-kit
+/build
+*.db
+*.db-shm
+*.db-wal
+.env
+*.crt
+*.key
