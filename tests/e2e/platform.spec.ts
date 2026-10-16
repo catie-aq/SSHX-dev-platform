@@ -268,18 +268,74 @@ test("6. renommage chiffré, conservé après rechargement", async () => {
   }
 });
 
-test("7. deux terminaux côte à côte", async () => {
-  await row(alice, keys.second!).click({ modifiers: ["Alt"] });
-  await expect(alice.getByTestId("terminal-pane")).toHaveCount(2);
-  await shot(alice, "08-division");
-  await pane(alice, keys.second!).getByRole("button", { name: "Retirer le panneau" }).click();
-  await expect(alice.getByTestId("terminal-pane")).toHaveCount(1);
+test("7. raccourcis clavier, sans rien envoyer au shell", async () => {
+  const current = async () => (await paneKeys(alice))[0];
+  await pane(alice, keys.first!).locator(".xterm").click();
+
+  // Up/down in the list, n-th terminal, back to the previous one.
+  await alice.keyboard.press("Alt+ArrowDown");
+  await expect.poll(current).toBe(keys.second);
+  await alice.keyboard.press("Alt+ArrowUp");
+  await expect.poll(current).toBe(keys.first);
+  await alice.keyboard.press("Alt+Digit2");
+  await expect.poll(current).toBe(keys.second);
+  await alice.keyboard.press("Alt+KeyL");
+  await expect.poll(current).toBe(keys.first);
+  await alice.keyboard.press("Alt+KeyL");
+  await expect.poll(current).toBe(keys.second);
+
+  // Quick switch by name.
+  await alice.keyboard.press("Alt+KeyK");
+  await expect(alice.getByTestId("palette")).toBeVisible();
+  await alice.keyboard.type("claude");
+  await expect(alice.getByTestId("palette-entry").first()).toContainText("claude - traduction");
+  await shot(alice, "08-aller-a");
+  await alice.keyboard.press("Enter");
+  await expect(alice.getByTestId("palette")).toHaveCount(0);
+  await expect.poll(current).toBe(keys.first);
+
+  // None of these keys reached the shell: the next command runs untouched.
+  await typeIn(alice, keys.first!, "echo propre-$((2+3))");
+  await expect.poll(() => terminalText(alice, keys.first!)).toContain("propre-5");
+
+  // New terminal in the same place, rename it, close it (Escape cancels).
+  await alice.keyboard.press("Alt+KeyN");
+  await expect(alice.getByTestId("terminal-row")).toHaveCount(3);
+  await expect.poll(current).not.toBe(keys.first);
+  const third = await current();
+  await alice.keyboard.press("Alt+KeyR");
+  const title = pane(alice, third).getByLabel("Nom du terminal");
+  await expect(title).toBeFocused();
+  await title.fill("serveur");
+  await title.press("Enter");
+  await expect(row(alice, third).getByTestId("terminal-name")).toHaveText("serveur");
+  await pane(alice, third).locator(".xterm").click();
+  await alice.keyboard.press("Alt+KeyX");
+  await expect(alice.getByTestId("confirm-close")).toBeFocused();
+  await alice.keyboard.press("Escape");
+  await expect(alice.getByTestId("confirm-close")).toHaveCount(0);
+  await alice.keyboard.press("Alt+KeyX");
+  await alice.keyboard.press("Enter");
+  await expect(row(alice, third)).toHaveCount(0);
+  await expect.poll(current).toBe(keys.first);
+
+  // Nothing to handle: a short notice.
+  await alice.keyboard.press("Alt+KeyJ");
+  await expect(alice.getByTestId("toast")).toContainText("Rien à traiter.");
+
+  // "?" outside the terminal shows the reference.
+  await alice.getByTestId("sidebar").locator("nav").click({ position: { x: 10, y: 400 } });
+  await alice.keyboard.press("?");
+  await expect(alice.getByRole("dialog", { name: "Raccourcis clavier" })).toBeVisible();
+  await shot(alice, "09-raccourcis");
+  await alice.keyboard.press("Escape");
+  await expect(alice.getByRole("dialog", { name: "Raccourcis clavier" })).toHaveCount(0);
 });
 
 test("8. fermeture d'un terminal depuis son menu", async () => {
   await row(alice, keys.second!).click();
   await pane(alice, keys.second!).getByTestId("pane-menu").click();
-  await shot(alice, "09-menu-terminal");
+  await shot(alice, "10-menu-terminal");
   await alice.getByRole("menuitem", { name: "Fermer le terminal" }).click();
   await alice.getByTestId("confirm-close").click();
   await expect(row(alice, keys.second!)).toHaveCount(0);
@@ -293,15 +349,20 @@ test("9. nouvel appareil en affichage mobile", async ({ browser }) => {
   await phone.getByLabel("Phrase secrète").fill(PASSPHRASE);
   await phone.getByRole("button", { name: "Déverrouiller" }).click();
   await expect(row(phone, keys.first!).getByTestId("terminal-name")).toHaveText("claude - traduction", { timeout: 30_000 });
-  await shot(phone, "10-mobile-liste");
+  await shot(phone, "11-mobile-liste");
   await row(phone, keys.first!).tap();
   await expect(pane(phone, keys.first!)).toBeVisible();
   await expect(phone.getByTestId("mobile-keys")).toBeVisible();
   await expect(phone.getByTestId("sidebar")).toHaveCount(0);
   await expect.poll(() => terminalText(phone, keys.first!)).toContain("e2e-42");
-  await shot(phone, "11-mobile-terminal");
+  await shot(phone, "12-mobile-terminal");
   await phone.getByRole("button", { name: "Retour à la liste" }).tap();
   await expect(phone.getByTestId("sidebar")).toBeVisible();
+
+  // The quick switch works by touch too.
+  await phone.getByTestId("open-palette").tap();
+  await phone.getByTestId("palette-entry").filter({ hasText: "claude - traduction" }).tap();
+  await expect(pane(phone, keys.first!)).toBeVisible();
   await phone.context().close();
 });
 
@@ -318,7 +379,7 @@ test("10. partage d'une machine avec un collègue", async ({ browser }) => {
   await card.getByTestId("share-select").selectOption(await optionValue(card, "bob (bob)"));
   await card.getByRole("button", { name: "Partager", exact: true }).click();
   await expect(alice.getByText("portable partagée avec bob.")).toBeVisible();
-  await shot(alice, "12-machines");
+  await shot(alice, "13-machines");
 
   // Bob's first run ends by itself: he now has a machine. Names, pins and
   // bells are personal, so he sees the automatic name.
@@ -372,7 +433,7 @@ test("12. machine arrêtée (Ctrl-C) puis relancée", async () => {
   await laptop.stop();
   await expect(row(alice, keys.first!)).toHaveAttribute("data-online", "false", { timeout: 15_000 });
   await expect(pane(alice, keys.first!)).toContainText("portable est hors ligne.");
-  await shot(alice, "13-hors-ligne");
+  await shot(alice, "14-hors-ligne");
 
   laptop.start("sshx");
   await expect.poll(() => stripAnsi(laptop.run("sshx platform status").out), { timeout: 20_000 }).toMatch(/Sessions\s+1 online/);
@@ -388,11 +449,11 @@ test("13. ajout d'une machine depuis la barre latérale, page d'administration",
   await alice.getByTestId("user-menu").click();
   await alice.getByRole("menuitem", { name: "Ajouter une machine…" }).click();
   await expect(alice.getByRole("dialog", { name: "Ajouter une machine" })).toBeVisible();
-  await shot(alice, "14-ajout-machine");
+  await shot(alice, "15-ajout-machine");
   await alice.keyboard.press("Escape");
 
   await alice.goto("/admin");
   const users = alice.getByTestId("admin-users");
   for (const name of ["alice", "bob", "carol"]) await expect(users).toContainText(name);
-  await shot(alice, "15-admin");
+  await shot(alice, "16-admin");
 });

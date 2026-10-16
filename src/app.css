@@ -55,6 +55,6 @@
     @apply mb-1.5 block text-sm font-medium text-zinc-300;
   }
   .kbd {
-    @apply rounded border border-zinc-700 bg-zinc-800 px-1.5 py-px font-mono text-[11px] text-zinc-300;
+    @apply inline-block min-w-[1.5em] rounded border border-zinc-700 bg-zinc-800 px-1.5 py-px text-center font-sans text-xs font-medium text-zinc-300;
   }
 }

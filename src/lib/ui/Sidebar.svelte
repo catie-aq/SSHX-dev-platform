@@ -6,6 +6,7 @@
   import type { Session } from "$lib/api";
   import { me } from "$lib/auth";
   import { attention, lastSeen, needsAttention, requestNotificationPermission } from "$lib/notify";
+  import { ALT } from "$lib/shortcuts";
   import { toastError } from "$lib/toast";
   import {
     eventsConnected,
@@ -26,17 +27,20 @@
   import StatusBadge from "./StatusBadge.svelte";
   import TerminalRow from "./TerminalRow.svelte";
 
-  export let selected: string[] = [];
+  /** Key of the open terminal. */
+  export let selected: string | null = null;
   /** Keys in display order, for keyboard navigation. */
   export let order: string[] = [];
   /** Touch layout (phones). */
   export let touch = false;
 
   const dispatch = createEventDispatcher<{
-    select: { key: string; split: boolean };
+    select: string;
     create: { session: Session; cwd?: string };
     action: { kind: "canvas" | "share" | "close" | "forget"; item: TermItem };
     addMachine: void;
+    palette: void;
+    help: void;
     logout: void;
     lock: void;
   }>();
@@ -62,7 +66,6 @@
   let collapsed: Record<string, boolean> = persisted("collapsed", {});
   let showOffline: boolean = persisted("showOffline", true);
   let filter: "all" | "attention" | "working" = "all";
-  let query = "";
   $: persist("groupBy", groupBy);
   $: persist("collapsed", collapsed);
   $: persist("showOffline", showOffline);
@@ -71,22 +74,9 @@
 
   const STATE_RANK: Record<string, number> = { permission: 5, question: 4, done: 3, working: 2, idle: 1, none: 0 };
 
-  function matches(item: TermItem, q: string): boolean {
-    if (!q) return true;
-    const hay = [item.name, item.project, item.machine.name, item.meta?.cwd, item.meta?.git?.branch, item.session.hostname]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return q
-      .toLowerCase()
-      .split(/\s+/)
-      .every((w) => hay.includes(w));
-  }
-
   $: visible = $items.filter(
     (i) =>
       (showOffline || i.online) &&
-      matches(i, query) &&
       (filter === "all" ||
         (filter === "working" && i.state === "working") ||
         (filter === "attention" && needsAttention(i, $lastSeen))),
@@ -120,7 +110,7 @@
       g.online ||= item.online;
     }
     // Machines with an online session but no terminal yet.
-    if (by === "machine" && !query && filter === "all") {
+    if (by === "machine" && filter === "all") {
       for (const s of allSessions.values()) {
         if (!s.online) continue;
         const id = `m:${s.machineId}`;
@@ -192,10 +182,7 @@
   }
 
   function openRowMenu(item: TermItem, pos: { x: number; y: number }) {
-    const list: MenuItem[] = [
-      { label: "Ouvrir", icon: "terminal", run: () => dispatch("select", { key: item.key, split: false }) },
-    ];
-    if (!touch) list.push({ label: "Ouvrir à côté", icon: "split", hint: "Alt+clic", run: () => dispatch("select", { key: item.key, split: true }) });
+    const list: MenuItem[] = [{ label: "Ouvrir", icon: "terminal", run: () => dispatch("select", item.key) }];
     list.push(
       "separator",
       { label: "Renommer", icon: "edit", hint: touch ? undefined : "double-clic", run: () => rows[item.key]?.startRename() },
@@ -264,6 +251,7 @@
       { label: "Ajouter une machine…", icon: "plus", run: () => dispatch("addMachine") },
     ];
     if ($me?.user.isAdmin) list.push({ label: "Administration", icon: "users", run: () => goto("/admin") });
+    if (!touch) list.push({ label: "Raccourcis clavier", icon: "text", hint: "?", run: () => dispatch("help") });
     list.push(
       "separator",
       { label: "Verrouiller cet appareil", icon: "lock", run: () => dispatch("lock") },
@@ -291,18 +279,23 @@
       title={$eventsConnected ? "Temps réel connecté" : "Reconnexion…"}
     />
     <div class="flex-1" />
-    <button class="btn-primary px-2.5 py-1.5" on:click={newTerminal} title="Nouveau terminal" data-testid="new-terminal">
+    <button class="btn-primary px-2.5 py-1.5" on:click={newTerminal} title="Nouveau terminal ({ALT}N)" data-testid="new-terminal">
       <Icon name="plus" size={16} stroke={2.4} />
       Terminal
     </button>
   </div>
 
-  <!-- Search and view options -->
+  <!-- Quick switch and view options -->
   <div class="flex items-center gap-1.5 px-3 pb-2">
-    <div class="relative min-w-0 flex-1">
-      <Icon name="search" size={15} class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-      <input class="input py-1.5 pl-8 text-sm" placeholder="Rechercher" aria-label="Rechercher un terminal" bind:value={query} />
-    </div>
+    <button
+      class="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 text-left text-sm text-zinc-500 transition-colors hover:border-zinc-700 hover:text-zinc-300"
+      on:click={() => dispatch("palette")}
+      data-testid="open-palette"
+    >
+      <Icon name="search" size={15} />
+      <span class="min-w-0 flex-1 truncate">Aller à un terminal…</span>
+      {#if !touch}<span class="kbd">{ALT}K</span>{/if}
+    </button>
     <button class="icon-btn h-9 w-9" title="Affichage" aria-label="Options d'affichage" on:click={viewMenu}>
       <Icon name="settings" size={17} />
     </button>
@@ -350,8 +343,8 @@
           {item}
           {touch}
           context={groupBy === "project" ? "machine" : "project"}
-          selected={selected.includes(item.key)}
-          on:select={(e) => dispatch("select", { key: item.key, split: e.detail.split })}
+          selected={selected === item.key}
+          on:select={() => dispatch("select", item.key)}
           on:rename={(e) => renameTerminal(item, e.detail).catch(toastError)}
           on:bell={(e) => toggleBell(item, e.detail)}
           on:pin={(e) => setPinned(item, e.detail).catch(toastError)}
@@ -400,8 +393,8 @@
             {item}
             {touch}
             context={groupBy === "project" ? "machine" : "project"}
-            selected={selected.includes(item.key)}
-            on:select={(e) => dispatch("select", { key: item.key, split: e.detail.split })}
+            selected={selected === item.key}
+            on:select={() => dispatch("select", item.key)}
             on:rename={(e) => renameTerminal(item, e.detail).catch(toastError)}
             on:bell={(e) => toggleBell(item, e.detail)}
             on:pin={(e) => setPinned(item, e.detail).catch(toastError)}
@@ -427,7 +420,7 @@
         {/if}
       </div>
     {:else if visible.length === 0}
-      <div class="px-3 py-8 text-center text-sm text-zinc-500">Aucun terminal ne correspond.</div>
+      <div class="px-3 py-8 text-center text-sm text-zinc-500">Aucun terminal dans ce filtre.</div>
     {/if}
   </nav>
 

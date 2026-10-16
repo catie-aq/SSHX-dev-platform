@@ -16,7 +16,7 @@
   export let touch = false;
 
   const dispatch = createEventDispatcher<{
-    select: { split: boolean };
+    select: void;
     rename: string;
     bell: boolean;
     pin: boolean;
@@ -76,8 +76,8 @@
   data-state={item.state}
   data-online={item.online}
   data-unread={unread}
-  on:click={(e) => dispatch("select", { split: e.altKey || e.metaKey })}
-  on:keydown={(e) => e.key === "Enter" && dispatch("select", { split: false })}
+  on:click={() => dispatch("select")}
+  on:keydown={(e) => e.key === "Enter" && dispatch("select")}
   on:dblclick|stopPropagation={startRename}
   on:contextmenu|preventDefault={(e) => dispatch("menu", { x: e.clientX, y: e.clientY })}
   on:dragstart={(e) => dispatch("dragstart", e)}

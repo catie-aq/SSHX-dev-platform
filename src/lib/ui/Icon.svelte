@@ -2,7 +2,6 @@
 <script lang="ts" context="module">
   const PATHS = {
     plus: "M12 5v14M5 12h14",
-    split: "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 3v18",
     more: "M12 12h.01M19 12h.01M5 12h.01",
     x: "M18 6 6 18M6 6l12 12",
     bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",

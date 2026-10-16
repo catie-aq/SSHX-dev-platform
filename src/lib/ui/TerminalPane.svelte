@@ -10,6 +10,7 @@
   import { acquire, release, type ConnectionStatus, type SessionConnection } from "$lib/connection";
   import { lastSeen, needsAttention, requestNotificationPermission } from "$lib/notify";
   import { termFontSize, TERM_FONT_MAX, TERM_FONT_MIN } from "$lib/settings";
+  import { ALT } from "$lib/shortcuts";
   import { ago, now } from "$lib/time";
   import { toast, toastError } from "$lib/toast";
   import { items, renameTerminal, sessionLink, sessionSecret, setBell, setPinned, type TermItem } from "$lib/workspace";
@@ -21,11 +22,8 @@
 
   export let itemKey: string;
   export let mobile = false;
-  export let canSplit = false;
-  export let closable = false;
-  export let active = true;
 
-  const dispatch = createEventDispatcher<{ back: void; closePane: void; split: void; create: TermItem }>();
+  const dispatch = createEventDispatcher<{ back: void; closed: void; create: TermItem }>();
 
   $: item = $items.find((i) => i.key === itemKey) as TermItem | undefined;
   $: sid = Number(itemKey.split("/")[1]);
@@ -76,7 +74,7 @@
   let editing = false;
   let draft = "";
   let nameInput: HTMLInputElement;
-  async function startRename() {
+  export async function startRename() {
     if (!item) return;
     draft = item.customName ?? item.name;
     editing = true;
@@ -100,10 +98,25 @@
   }
 
   let confirmClose = false;
+  let confirmButton: HTMLButtonElement;
+
+  /** Ask before closing: Enter confirms, Escape cancels. */
+  export async function askClose() {
+    if (!item?.online) return;
+    confirmClose = true;
+    await tick();
+    confirmButton?.focus();
+  }
+
+  function cancelClose() {
+    confirmClose = false;
+    focus();
+  }
+
   function closeTerminal() {
     confirmClose = false;
     conn?.close(sid);
-    dispatch("closePane");
+    dispatch("closed");
   }
 
   async function share() {
@@ -141,7 +154,7 @@
     if (!item) return;
     try {
       await api.forgetSession(item.session.name);
-      dispatch("closePane");
+      dispatch("closed");
     } catch (err) {
       toastError(err);
     }
@@ -162,7 +175,7 @@
     if (!item) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const list: MenuItem[] = [
-      { label: "Renommer", icon: "edit", run: startRename },
+      { label: "Renommer", icon: "edit", hint: `${ALT}R`, run: startRename },
       { label: item.bell ? "Couper les notifications" : "Me notifier", icon: "bell", run: toggleBell },
       { label: item.pinned ? "Désépingler" : "Épingler en haut", icon: "pin", run: () => item && setPinned(item, !item.pinned).catch(toastError) },
       "separator",
@@ -183,7 +196,7 @@
         },
         { label: "Copier le lien sshx", icon: "share", run: share },
         "separator",
-        { label: "Fermer le terminal", icon: "x", danger: true, run: () => (confirmClose = true) },
+        { label: "Fermer le terminal", icon: "x", danger: true, hint: `${ALT}X`, run: askClose },
       );
     }
     menu = { x: rect.right, y: rect.bottom + 6, items: list };
@@ -210,7 +223,7 @@
     : "";
 </script>
 
-<div class="flex h-full min-h-0 flex-col bg-[#181818]" class:opacity-90={!active && !mobile} data-testid="terminal-pane" data-key={itemKey}>
+<div class="flex h-full min-h-0 flex-col bg-[#181818]" data-testid="terminal-pane" data-key={itemKey}>
   <!-- Header -->
   <header class="flex h-14 shrink-0 items-center gap-2.5 border-b border-zinc-800 px-3">
     {#if mobile}
@@ -255,14 +268,9 @@
       {/if}
       {#if !$canWrite}<span class="rounded-md border border-zinc-700 px-1.5 py-0.5 text-xs text-zinc-400" title="Session en lecture seule">Lecture seule</span>{/if}
       {#if !mobile}
-        <button class="icon-btn" title="Nouveau terminal sur {item.machine.name}" aria-label="Nouveau terminal" on:click={() => item && dispatch("create", item)}>
+        <button class="icon-btn" title="Nouveau terminal sur {item.machine.name} ({ALT}N)" aria-label="Nouveau terminal" on:click={() => item && dispatch("create", item)}>
           <Icon name="plus" size={18} />
         </button>
-        {#if canSplit}
-          <button class="icon-btn" title="Diviser l'écran (Alt+clic dans la liste)" aria-label="Diviser" on:click={() => dispatch("split")}>
-            <Icon name="split" size={17} />
-          </button>
-        {/if}
       {/if}
     {/if}
     {#if item}
@@ -270,18 +278,21 @@
         <Icon name="more" size={18} stroke={2.6} />
       </button>
     {/if}
-    {#if closable && !mobile}
-      <button class="icon-btn" title="Retirer ce panneau (le terminal continue)" aria-label="Retirer le panneau" on:click={() => dispatch("closePane")}>
-        <Icon name="x" size={17} />
-      </button>
-    {/if}
   </header>
 
   {#if confirmClose && item}
     <div class="flex shrink-0 flex-wrap items-center gap-3 border-b border-red-900/60 bg-red-950/50 px-4 py-2.5 text-sm text-red-100">
       <span class="min-w-0 flex-1">Fermer « {item.name} » ? Le shell et les programmes qu'il exécute seront arrêtés.</span>
-      <button class="btn" on:click={() => (confirmClose = false)}>Annuler</button>
-      <button class="btn-danger" data-testid="confirm-close" on:click={closeTerminal}>Fermer le terminal</button>
+      <button class="btn" on:click={cancelClose}>Annuler</button>
+      <button
+        bind:this={confirmButton}
+        class="btn-danger"
+        data-testid="confirm-close"
+        on:click={closeTerminal}
+        on:keydown={(e) => e.key === "Escape" && cancelClose()}
+      >
+        Fermer le terminal
+      </button>
     </div>
   {/if}
 

@@ -21,6 +21,7 @@
   import { TypeAheadAddon } from "$sshx/typeahead";
 
   import type { SessionConnection } from "$lib/connection";
+  import { matchShortcut } from "$lib/shortcuts";
 
   export let conn: SessionConnection;
   export let sid: number;
@@ -104,6 +105,8 @@
     term.loadAddon(fit as any);
     term.loadAddon(new WebLinksAddon() as any);
     term.attachCustomKeyEventHandler((event) => {
+      // Workspace shortcuts never reach the shell.
+      if (matchShortcut(event)) return false;
       const mod = isMac ? event.metaKey : event.ctrlKey;
       // Copy with a selection instead of sending SIGINT; let the browser paste.
       if (mod && event.key === "c" && term!.hasSelection()) return false;

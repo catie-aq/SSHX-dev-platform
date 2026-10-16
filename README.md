@@ -15,8 +15,23 @@ Elle s'appuie sur [sshx (fork CATIE)](../sshx) sans le remplacer :
 - **Liste de terminaux à gauche**, groupée par projet (dépôt git ou nom de dossier, identique d'une
   machine à l'autre) ou par machine. Tri par glisser-déposer, épinglage, renommage (double-clic),
   filtre, sessions hors ligne affichées en grisé.
-- **Terminal plein panneau**, jusqu'à trois côte à côte (Alt+clic). Écho prédictif et thèmes de sshx.
-  Navigation Alt+↑/↓ et Alt+1…9.
+- **Un terminal plein écran à la fois**, avec l'écho prédictif et les thèmes de sshx.
+- **Raccourcis clavier** (⌥ sur Mac, Alt ailleurs), actifs même quand le terminal a le clavier et
+  jamais envoyés au shell :
+
+  | Touches | Action |
+  |---|---|
+  | ⌥K | Aller à un terminal : quelques lettres du nom, du projet, de la machine ou de la branche, puis Entrée |
+  | ⌥J | Terminal suivant à traiter (question, autorisation, travail terminé non lu) |
+  | ⌥L | Revenir au terminal précédent (bascule entre les deux derniers) |
+  | ⌥↑ / ⌥↓ | Terminal au-dessus / en dessous dans la liste |
+  | ⌥1 … ⌥9 | n-ième terminal de la liste |
+  | ⌥N | Nouveau terminal sur la même machine, dans le même dossier |
+  | ⌥R | Renommer le terminal |
+  | ⌥X | Fermer le terminal (Entrée confirme, Échap annule) |
+  | ? | Aide des raccourcis (hors terminal) |
+
+  Les touches sont repérées par leur position : elles sont les mêmes en AZERTY et en QWERTY.
 - **États des agents** par terminal, remontés par les hooks Claude Code : badges, bandeau avec la
   question ou la réponse finale, compteur « à traiter » dans le titre de l'onglet. Un badge vert
   signale un travail terminé que vous n'avez pas encore regardé.

@@ -7,12 +7,15 @@
   import { acquire, closeAll, release } from "$lib/connection";
   import { attention, markSeen, selectRequest, visibleKeys } from "$lib/notify";
   import { sidebarWidth } from "$lib/settings";
+  import { matchShortcut, type Shortcut } from "$lib/shortcuts";
   import { ago, now } from "$lib/time";
-  import { toastError } from "$lib/toast";
+  import { toast, toastError } from "$lib/toast";
   import AddMachine from "$lib/ui/AddMachine.svelte";
   import Icon from "$lib/ui/Icon.svelte";
   import Logo from "$lib/ui/Logo.svelte";
   import Modal from "$lib/ui/Modal.svelte";
+  import Palette from "$lib/ui/Palette.svelte";
+  import ShortcutsHelp from "$lib/ui/ShortcutsHelp.svelte";
   import Sidebar from "$lib/ui/Sidebar.svelte";
   import StatusBadge from "$lib/ui/StatusBadge.svelte";
   import Steps from "$lib/ui/Steps.svelte";
@@ -21,58 +24,48 @@
   import { lockVault, vaultStatus } from "$lib/vault";
   import { items, itemsReady, loaded, machines, sessions, startLive, stopLive, termKey, type TermItem } from "$lib/workspace";
 
-  const MAX_PANES = 3;
-  const PANES_KEY = "sshx-platform:panes";
+  const CURRENT_KEY = "sshx-platform:current";
+  const HISTORY_LIMIT = 30;
 
-  let panes: string[] = [];
-  let active = 0;
+  /** Key of the open terminal. */
+  let current: string | null = null;
+  /** Recently opened terminals, most recent first. */
+  let history: string[] = [];
   let order: string[] = [];
   let mobile = false;
-  let paneRefs: TerminalPane[] = [];
+  let pane: TerminalPane | null = null;
   let addingMachine = false;
+  let paletteOpen = false;
+  let helpOpen = false;
   /** Machine whose connection command is shown again. */
   let reconnecting: Machine | null = null;
   /** First run: no machine yet. Kept until the wizard is done. */
   let onboarding: boolean | null = null;
 
   try {
-    panes = JSON.parse(localStorage.getItem(PANES_KEY) ?? "[]");
+    current = JSON.parse(localStorage.getItem(CURRENT_KEY) ?? "null");
+    history = current ? [current] : [];
   } catch {
-    panes = [];
+    current = null;
   }
   $: try {
-    localStorage.setItem(PANES_KEY, JSON.stringify(panes));
+    localStorage.setItem(CURRENT_KEY, JSON.stringify(current));
   } catch {
     /* ignore */
   }
-  // Drop panes of terminals that no longer exist, once loaded.
-  $: if ($itemsReady) {
-    const keys = new Set($items.map((i) => i.key));
-    const kept = panes.filter((k) => keys.has(k) || pendingKeys.has(k));
-    if (kept.length !== panes.length) {
-      panes = kept;
-      active = Math.min(active, Math.max(0, panes.length - 1));
-    }
+  // Forget a terminal that no longer exists, once loaded.
+  $: if ($itemsReady && current && !pendingKeys.has(current) && !$items.some((i) => i.key === current)) {
+    current = null;
   }
-  $: visibleKeys.set(new Set(mobile && panes.length ? [panes[active]] : panes));
-  $: for (const key of panes) markSeen(key);
+  $: visibleKeys.set(new Set(current ? [current] : []));
+  $: if (current) markSeen(current);
 
   const pendingKeys = new Set<string>();
 
-  function select(key: string, split = false) {
-    const idx = panes.indexOf(key);
-    if (idx >= 0) {
-      active = idx;
-    } else if (split && panes.length < MAX_PANES && !mobile) {
-      panes = [...panes, key];
-      active = panes.length - 1;
-    } else if (panes.length === 0) {
-      panes = [key];
-      active = 0;
-    } else {
-      panes[active] = key;
-      panes = panes;
-    }
+  function select(key: string) {
+    current = key;
+    history = [key, ...history.filter((k) => k !== key)].slice(0, HISTORY_LIMIT);
+    paletteOpen = false;
     markSeen(key);
     setTimeout(() => {
       // Do not steal focus from a field, e.g. the rename box of a double-click.
@@ -80,20 +73,23 @@
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
         if (!el.classList.contains("xterm-helper-textarea")) return;
       }
-      paneRefs[active]?.focus();
+      pane?.focus();
     }, 50);
   }
 
-  function closePane(i: number) {
-    panes = panes.filter((_, j) => j !== i);
-    active = Math.min(active, Math.max(0, panes.length - 1));
+  /** After closing the open terminal: go to the previous one still listed. */
+  function afterClose(closed: string) {
+    history = history.filter((k) => k !== closed);
+    const next = history.find((k) => $items.some((i) => i.key === k && i.online)) ?? order.find((k) => k !== closed);
+    if (next) select(next);
+    else current = null;
   }
 
   function shellQuote(path: string) {
     return `'${path.replace(/'/g, `'\\''`)}'`;
   }
 
-  async function createTerminal(session: Session, cwd?: string, split = false) {
+  async function createTerminal(session: Session, cwd?: string) {
     try {
       const conn = await acquire(session, $me?.user.displayName ?? "platform");
       try {
@@ -105,7 +101,7 @@
         const key = termKey(session.name, sid);
         pendingKeys.add(key);
         setTimeout(() => pendingKeys.delete(key), 15_000);
-        select(key, split);
+        select(key);
       } finally {
         release(conn);
       }
@@ -120,8 +116,7 @@
         const conn = await acquire(item.session, $me?.user.displayName ?? "platform");
         conn.close(item.sid);
         release(conn);
-        const idx = panes.indexOf(item.key);
-        if (idx >= 0) closePane(idx);
+        if (current === item.key) afterClose(item.key);
       } else if (kind === "forget") {
         await api.forgetSession(item.session.name);
       } else if (kind === "share" || kind === "canvas") {
@@ -152,20 +147,83 @@
     await lockVault();
   }
 
+  function step(delta: number) {
+    if (order.length === 0) return;
+    const idx = current ? order.indexOf(current) : -1;
+    const next = idx < 0 ? (delta > 0 ? 0 : order.length - 1) : (idx + delta + order.length) % order.length;
+    select(order[next]);
+  }
+
+  /** Next terminal needing attention after the open one: questions first. */
+  function nextAttention() {
+    const list = [...$attention.questions, ...$attention.done].map((i) => i.key);
+    if (list.length === 0) return toast("Rien à traiter.", "info", 1500);
+    const idx = current ? list.indexOf(current) : -1;
+    select(list[(idx + 1) % list.length]);
+  }
+
+  function newHere() {
+    const item = $items.find((i) => i.key === current);
+    if (item?.online) return createTerminal(item.session, item.meta?.cwd);
+    const session = onlineSessions[0];
+    if (session) createTerminal(session);
+    else toast("Aucune machine en ligne.", "info", 2000);
+  }
+
+  function runShortcut(shortcut: Shortcut) {
+    switch (shortcut.action) {
+      case "palette":
+        paletteOpen = !paletteOpen;
+        break;
+      case "attention":
+        nextAttention();
+        break;
+      case "last": {
+        const previous = history.find((k) => k !== current && $items.some((i) => i.key === k));
+        if (previous) select(previous);
+        break;
+      }
+      case "prev":
+        step(-1);
+        break;
+      case "next":
+        step(1);
+        break;
+      case "nth": {
+        const key = order[(shortcut.n ?? 1) - 1];
+        if (key) select(key);
+        break;
+      }
+      case "new":
+        newHere();
+        break;
+      case "rename":
+        pane?.startRename();
+        break;
+      case "close":
+        pane?.askClose();
+        break;
+    }
+  }
+
   function onKeydown(event: KeyboardEvent) {
-    // Alt+↑/↓: previous/next terminal; Alt+1..9: n-th terminal.
-    if (!event.altKey || event.metaKey || event.ctrlKey) return;
-    const current = panes[active];
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      if (order.length === 0) return;
-      const idx = order.indexOf(current);
-      const next = event.key === "ArrowDown" ? idx + 1 : idx - 1;
-      select(order[(next + order.length) % order.length]);
+    if (onboarding || mobile || $vaultStatus !== "unlocked") return;
+    const shortcut = matchShortcut(event);
+    if (shortcut) {
+      // Capture phase: the terminal never receives the key.
       event.preventDefault();
-    } else if (/^Digit[1-9]$/.test(event.code)) {
-      const key = order[Number(event.code.slice(5)) - 1];
-      if (key) select(key);
-      event.preventDefault();
+      event.stopPropagation();
+      if (addingMachine || reconnecting || helpOpen) return;
+      runShortcut(shortcut);
+      return;
+    }
+    if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      const el = document.activeElement;
+      const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
+      if (!typing) {
+        helpOpen = true;
+        event.preventDefault();
+      }
     }
   }
 
@@ -206,7 +264,6 @@
     media = window.matchMedia("(max-width: 767px)");
     onMedia();
     media.addEventListener("change", onMedia);
-    if (mobile && panes.length > 1) panes = [panes[active] ?? panes[0]];
   });
   onDestroy(() => {
     unsubscribeVault();
@@ -251,12 +308,11 @@
   $: firstRun = onboarding === true;
   $: neverSeen = [...$machines.values()].filter((m) => m.lastSeenAt === null && m.ownerId === $me?.user.id);
   $: onlineSessions = [...$sessions.values()].filter((s) => s.online);
-  $: showSidebar = !mobile || panes.length === 0;
-  $: shownPanes = mobile ? panes.slice(active, active + 1) : panes;
+  $: showSidebar = !mobile || !current;
   $: pending = [...$attention.questions, ...$attention.done];
 </script>
 
-<svelte:window on:keydown={onKeydown} />
+<svelte:window on:keydown|capture={onKeydown} />
 
 <VaultGate>
   {#if !$loaded}
@@ -285,13 +341,15 @@
       {#if showSidebar}
         <div class="relative h-full shrink-0 border-r border-zinc-800/80" style:width={mobile ? "100%" : `${$sidebarWidth}px`}>
           <Sidebar
-            selected={panes}
+            selected={current}
             touch={mobile}
             bind:order
-            on:select={(e) => select(e.detail.key, e.detail.split)}
+            on:select={(e) => select(e.detail)}
             on:create={(e) => createTerminal(e.detail.session, e.detail.cwd)}
             on:action={(e) => onAction(e.detail.kind, e.detail.item)}
             on:addMachine={() => (addingMachine = true)}
+            on:palette={() => (paletteOpen = true)}
+            on:help={() => (helpOpen = true)}
             on:logout={logout}
             on:lock={lock}
           />
@@ -309,34 +367,20 @@
       {/if}
       {#if !showSidebar || !mobile}
         <main class="flex min-w-0 flex-1">
-          {#each shownPanes as key, i (key)}
-            {@const idx = mobile ? active : i}
-            <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <div
-              class="relative min-w-0 flex-1 border-l border-zinc-800 first:border-l-0"
-              on:pointerdown={() => (active = idx)}
-            >
-              {#if !mobile && panes.length > 1 && idx === active}
-                <div class="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 bg-indigo-400" />
-              {/if}
-              <TerminalPane
-                bind:this={paneRefs[idx]}
-                itemKey={key}
-                {mobile}
-                active={idx === active}
-                canSplit={panes.length < MAX_PANES}
-                closable={panes.length > 1}
-                on:back={() => (panes = [])}
-                on:closePane={() => closePane(idx)}
-                on:split={() => {
-                  const next = order.find((k) => !panes.includes(k));
-                  if (next) select(next, true);
-                }}
-                on:create={(e) => createTerminal(e.detail.session, e.detail.meta?.cwd, panes.length < MAX_PANES)}
-              />
-            </div>
-          {/each}
-          {#if panes.length === 0}
+          {#if current}
+            {#key current}
+              <div class="min-w-0 flex-1">
+                <TerminalPane
+                  bind:this={pane}
+                  itemKey={current}
+                  {mobile}
+                  on:back={() => (current = null)}
+                  on:closed={() => current && afterClose(current)}
+                  on:create={(e) => createTerminal(e.detail.session, e.detail.meta?.cwd)}
+                />
+              </div>
+            {/key}
+          {:else}
             <div class="flex flex-1 items-center justify-center overflow-y-auto p-8" data-testid="empty-main">
               <div class="w-full max-w-lg">
                 {#if pending.length > 0}
@@ -394,12 +438,12 @@
                     </div>
                   </div>
                 {/if}
-                <dl class="mx-auto mt-10 grid max-w-sm grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm text-zinc-500">
-                  <dt><span class="kbd">Alt</span> + <span class="kbd">↑</span><span class="kbd">↓</span></dt><dd>terminal précédent / suivant</dd>
-                  <dt><span class="kbd">Alt</span> + <span class="kbd">1</span>…<span class="kbd">9</span></dt><dd>aller au terminal n</dd>
-                  <dt><span class="kbd">Alt</span> + clic</dt><dd>ouvrir à côté</dd>
-                  <dt>double-clic</dt><dd>renommer</dd>
-                </dl>
+                {#if !mobile}
+                  <div class="mx-auto mt-10 w-fit">
+                    <p class="mb-3 text-center text-xs font-medium text-zinc-500">Raccourcis clavier</p>
+                    <ShortcutsHelp compact />
+                  </div>
+                {/if}
               </div>
             </div>
           {/if}
@@ -412,6 +456,32 @@
 {#if reconnecting}
   <Modal title="Connecter {reconnecting.name}" on:close={() => (reconnecting = null)}>
     <AddMachine existing={reconnecting} on:open={(e) => openFromWizard(e.detail)} on:create={(e) => createFromWizard(e.detail)} />
+  </Modal>
+{/if}
+
+{#if paletteOpen}
+  <Palette
+    {history}
+    {current}
+    on:select={(e) => select(e.detail)}
+    on:create={(e) => {
+      paletteOpen = false;
+      createTerminal(e.detail);
+    }}
+    on:close={() => {
+      paletteOpen = false;
+      pane?.focus();
+    }}
+  />
+{/if}
+
+{#if helpOpen}
+  <Modal title="Raccourcis clavier" width={560} on:close={() => (helpOpen = false)}>
+    <ShortcutsHelp />
+    <p class="mt-5 text-sm text-zinc-500">
+      Ils fonctionnent aussi quand le terminal a le clavier : ces touches ne sont jamais envoyées au shell.
+      Double-cliquez sur un nom pour le renommer, glissez une ligne pour réordonner la liste.
+    </p>
   </Modal>
 {/if}
 
