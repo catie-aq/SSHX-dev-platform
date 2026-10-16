@@ -1,21 +1,27 @@
-<!-- @component Asks for the encryption passphrase before showing its content. -->
+<!-- @component Asks for the secret passphrase before showing its content. -->
 <script lang="ts">
   import { api } from "$lib/api";
   import { me } from "$lib/auth";
   import { toastError } from "$lib/toast";
   import { initVault, setupVault, unlockVault, vaultStatus } from "$lib/vault";
   import { refreshDecryption } from "$lib/workspace";
+  import Icon from "./Icon.svelte";
+  import Logo from "./Logo.svelte";
+  import Steps from "./Steps.svelte";
+
+  const MIN_LENGTH = 10;
 
   let passphrase = "";
   let confirm = "";
   let remember = true;
+  let reveal = false;
   let busy = false;
   let error: string | null = null;
   let showReset = false;
 
   async function setup() {
-    if (passphrase.length < 10) return (error = "Au moins 10 caractères.");
-    if (passphrase !== confirm) return (error = "Les deux saisies diffèrent.");
+    if (passphrase.length < MIN_LENGTH) return (error = `Au moins ${MIN_LENGTH} caractères.`);
+    if (passphrase !== confirm) return (error = "Les deux saisies sont différentes.");
     busy = true;
     error = null;
     try {
@@ -57,58 +63,89 @@
       toastError(err);
     }
   }
+
+  $: type = reveal ? "text" : "password";
 </script>
 
 {#if $vaultStatus === "unlocked"}
   <slot />
 {:else if $vaultStatus === "loading"}
-  <div class="flex h-full items-center justify-center text-sm text-zinc-500">Chargement…</div>
+  <div class="flex h-dvh items-center justify-center text-sm text-zinc-500">Chargement…</div>
 {:else}
-  <div class="flex min-h-full items-center justify-center p-4">
-    <div class="panel w-full max-w-md p-6">
+  <div class="flex min-h-dvh items-center justify-center p-4">
+    <div class="w-full max-w-[440px]">
       {#if $vaultStatus === "none"}
-        <h2 class="text-base font-semibold text-zinc-100">Phrase de chiffrement</h2>
-        <p class="mt-2 text-sm text-zinc-400">
-          Les terminaux restent chiffrés de bout en bout. Cette phrase protège les clés de vos machines ;
-          elle ne quitte jamais votre navigateur et le serveur ne peut pas la retrouver. Si vous la perdez,
-          il faudra réenrôler vos machines.
-        </p>
-        <form class="mt-4 space-y-3" on:submit|preventDefault={setup}>
-          <input class="input" type="password" bind:value={passphrase} placeholder="Phrase (10 caractères minimum)" autocomplete="new-password" />
-          <input class="input" type="password" bind:value={confirm} placeholder="Confirmation" autocomplete="new-password" />
-          <label class="flex items-center gap-2 text-sm text-zinc-400">
-            <input type="checkbox" bind:checked={remember} /> Se souvenir sur cet appareil
-          </label>
-          {#if error}<p class="text-sm text-red-400">{error}</p>{/if}
-          <button class="btn-primary w-full justify-center py-2" disabled={busy}>
-            {busy ? "Dérivation de la clé…" : "Créer"}
-          </button>
-        </form>
+        <div class="mb-5 flex justify-center"><Steps current={2} /></div>
       {:else}
-        <h2 class="text-base font-semibold text-zinc-100">Déverrouiller</h2>
-        <p class="mt-2 text-sm text-zinc-400">Saisissez votre phrase de chiffrement pour ouvrir vos terminaux.</p>
-        <form class="mt-4 space-y-3" on:submit|preventDefault={unlock}>
-          <!-- svelte-ignore a11y-autofocus -->
-          <input class="input" type="password" bind:value={passphrase} placeholder="Phrase de chiffrement" autocomplete="current-password" autofocus />
-          <label class="flex items-center gap-2 text-sm text-zinc-400">
-            <input type="checkbox" bind:checked={remember} /> Se souvenir sur cet appareil
-          </label>
-          {#if error}<p class="text-sm text-red-400">{error}</p>{/if}
-          <button class="btn-primary w-full justify-center py-2" disabled={busy || !passphrase}>
-            {busy ? "Vérification…" : "Déverrouiller"}
-          </button>
-        </form>
-        <button class="mt-4 text-xs text-zinc-500 underline hover:text-zinc-300" on:click={() => (showReset = !showReset)}>
-          Phrase oubliée ?
-        </button>
-        {#if showReset}
-          <div class="mt-2 rounded-md border border-red-900/60 bg-red-950/40 p-3 text-xs text-red-200/90">
-            Réinitialiser supprime vos clés et les machines que vous possédez : il faudra les réenrôler avec
-            de nouveaux jetons. Les machines partagées avec vous devront vous être repartagées.
-            <button class="btn-danger mt-2" on:click={reset}>Réinitialiser le chiffrement</button>
-          </div>
-        {/if}
+        <div class="mb-6 flex justify-center"><Logo size={40} label={false} /></div>
       {/if}
+      <div class="panel p-7" data-testid="vault-gate" data-status={$vaultStatus}>
+        {#if $vaultStatus === "none"}
+          <h1 class="text-xl font-semibold text-zinc-50">Choisissez une phrase secrète</h1>
+          <p class="mt-2 text-[15px] leading-relaxed text-zinc-400">
+            Elle chiffre vos terminaux de bout en bout. Elle reste dans votre navigateur : ni le serveur ni
+            personne d'autre ne peut la retrouver.
+          </p>
+          <form class="mt-6 space-y-4" on:submit|preventDefault={setup}>
+            <div>
+              <label class="label" for="pass">Phrase secrète</label>
+              <div class="relative">
+                <!-- svelte-ignore a11y-autofocus -->
+                <input id="pass" class="input pr-10" {type} value={passphrase} on:input={(e) => (passphrase = e.currentTarget.value)} placeholder="{MIN_LENGTH} caractères minimum" autocomplete="new-password" autofocus />
+                <button type="button" class="absolute inset-y-0 right-0 px-3 text-zinc-500 hover:text-zinc-200" title={reveal ? "Masquer" : "Afficher"} on:click={() => (reveal = !reveal)}>
+                  <Icon name={reveal ? "eyeOff" : "eye"} size={16} />
+                </button>
+              </div>
+              {#if passphrase && passphrase.length < MIN_LENGTH}
+                <p class="mt-1 text-xs text-zinc-500">Encore {MIN_LENGTH - passphrase.length} caractère{MIN_LENGTH - passphrase.length > 1 ? "s" : ""}.</p>
+              {/if}
+            </div>
+            <div>
+              <label class="label" for="confirm">Confirmation</label>
+              <input id="confirm" class="input" {type} value={confirm} on:input={(e) => (confirm = e.currentTarget.value)} autocomplete="new-password" />
+            </div>
+            <label class="flex items-center gap-2.5 text-sm text-zinc-300">
+              <input type="checkbox" class="h-4 w-4 accent-indigo-500" bind:checked={remember} /> Rester déverrouillé sur cet appareil
+            </label>
+            {#if error}<p class="text-sm text-red-400">{error}</p>{/if}
+            <button class="btn-primary w-full py-2.5 text-[15px]" disabled={busy}>
+              {busy ? "Création des clés…" : "Continuer"}
+            </button>
+          </form>
+          <p class="mt-5 text-xs leading-relaxed text-zinc-500">
+            Notez-la : elle sera demandée sur chaque nouvel appareil. Perdue, il faudra reconnecter vos machines.
+          </p>
+        {:else}
+          <h1 class="text-xl font-semibold text-zinc-50">Déverrouiller</h1>
+          <p class="mt-2 text-[15px] text-zinc-400">Votre phrase secrète ouvre vos terminaux sur cet appareil.</p>
+          <form class="mt-6 space-y-4" on:submit|preventDefault={unlock}>
+            <div class="relative">
+              <!-- svelte-ignore a11y-autofocus -->
+              <input class="input pr-10" {type} value={passphrase} on:input={(e) => (passphrase = e.currentTarget.value)} placeholder="Phrase secrète" aria-label="Phrase secrète" autocomplete="current-password" autofocus />
+              <button type="button" class="absolute inset-y-0 right-0 px-3 text-zinc-500 hover:text-zinc-200" title={reveal ? "Masquer" : "Afficher"} on:click={() => (reveal = !reveal)}>
+                <Icon name={reveal ? "eyeOff" : "eye"} size={16} />
+              </button>
+            </div>
+            <label class="flex items-center gap-2.5 text-sm text-zinc-300">
+              <input type="checkbox" class="h-4 w-4 accent-indigo-500" bind:checked={remember} /> Rester déverrouillé sur cet appareil
+            </label>
+            {#if error}<p class="text-sm text-red-400">{error}</p>{/if}
+            <button class="btn-primary w-full py-2.5 text-[15px]" disabled={busy || !passphrase}>
+              {busy ? "Vérification…" : "Déverrouiller"}
+            </button>
+          </form>
+          <button class="mt-5 text-sm text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline" on:click={() => (showReset = !showReset)}>
+            Phrase oubliée ?
+          </button>
+          {#if showReset}
+            <div class="mt-3 rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-200/90">
+              Réinitialiser efface vos clés et les machines que vous possédez : il faudra les reconnecter. Les
+              machines partagées avec vous devront vous être repartagées.
+              <button class="btn-danger mt-3" on:click={reset}>Réinitialiser</button>
+            </div>
+          {/if}
+        {/if}
+      </div>
     </div>
   </div>
 {/if}

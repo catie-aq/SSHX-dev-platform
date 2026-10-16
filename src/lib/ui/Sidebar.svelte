@@ -1,10 +1,11 @@
 <!-- @component Terminal list, grouped by project or machine, sortable. -->
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import { goto } from "$app/navigation";
 
   import type { Session } from "$lib/api";
   import { me } from "$lib/auth";
-  import { attention, lastSeen, needsAttention } from "$lib/notify";
+  import { attention, lastSeen, needsAttention, requestNotificationPermission } from "$lib/notify";
   import { toastError } from "$lib/toast";
   import {
     eventsConnected,
@@ -19,7 +20,8 @@
     sortKeyBetween,
     type TermItem,
   } from "$lib/workspace";
-  import { requestNotificationPermission } from "$lib/notify";
+  import Icon from "./Icon.svelte";
+  import Logo from "./Logo.svelte";
   import Menu, { type MenuItem } from "./Menu.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import TerminalRow from "./TerminalRow.svelte";
@@ -27,11 +29,14 @@
   export let selected: string[] = [];
   /** Keys in display order, for keyboard navigation. */
   export let order: string[] = [];
+  /** Touch layout (phones). */
+  export let touch = false;
 
   const dispatch = createEventDispatcher<{
     select: { key: string; split: boolean };
     create: { session: Session; cwd?: string };
-    action: { kind: "canvas" | "share" | "close" | "forget" | "split"; item: TermItem };
+    action: { kind: "canvas" | "share" | "close" | "forget"; item: TermItem };
+    addMachine: void;
     logout: void;
     lock: void;
   }>();
@@ -90,6 +95,7 @@
   $: groups = buildGroups(visible.filter((i) => !i.pinned), groupBy, $sessions);
   $: onlineSessions = [...$sessions.values()].filter((s) => s.online);
   $: order = [...pinned, ...groups.flatMap((g) => (collapsed[g.id] ? [] : g.items))].map((i) => i.key);
+  $: offlineCount = $items.filter((i) => !i.online).length;
 
   function buildGroups(list: TermItem[], by: typeof groupBy, allSessions: Map<string, Session>): Group[] {
     const map = new Map<string, Group>();
@@ -125,9 +131,7 @@
     }
     for (const g of map.values()) {
       const names = new Set(g.items.map((i) => i.session.name));
-      g.sessions = [...allSessions.values()].filter(
-        (s) => s.online && (names.has(s.name) || g.id === `m:${s.machineId}`),
-      );
+      g.sessions = [...allSessions.values()].filter((s) => s.online && (names.has(s.name) || g.id === `m:${s.machineId}`));
       g.online ||= g.sessions.length > 0;
     }
     return [...map.values()].sort((a, b) => {
@@ -174,118 +178,184 @@
     }
   }
 
-  // Context menu.
-  let menu: { x: number; y: number; items: MenuItem[] } | null = null;
+  // Menus.
+  let menu: { x: number; y: number; items: MenuItem[]; alignRight?: boolean; above?: boolean } | null = null;
   let rows: Record<string, TerminalRow> = {};
-  let newMenu: { x: number; y: number; items: MenuItem[] } | null = null;
 
   async function toggleBell(item: TermItem, on: boolean) {
     if (on) await requestNotificationPermission();
     setBell(item, on).catch(toastError);
   }
 
-  function openMenu(item: TermItem, e: MouseEvent) {
+  function machineName(s: Session) {
+    return $machines.get(s.machineId)?.name ?? s.hostname;
+  }
+
+  function openRowMenu(item: TermItem, pos: { x: number; y: number }) {
     const list: MenuItem[] = [
-      { label: "Ouvrir", run: () => dispatch("select", { key: item.key, split: false }) },
-      { label: "Ouvrir à côté", hint: "Alt+clic", run: () => dispatch("select", { key: item.key, split: true }) },
-      "separator",
-      { label: "Renommer", hint: "double-clic", run: () => rows[item.key]?.startRename() },
-      { label: item.pinned ? "Désépingler" : "Épingler", run: () => setPinned(item, !item.pinned).catch(toastError) },
-      { label: item.bell ? "Couper les notifications" : "Me notifier", run: () => toggleBell(item, !item.bell) },
+      { label: "Ouvrir", icon: "terminal", run: () => dispatch("select", { key: item.key, split: false }) },
     ];
-    if (item.customName) list.push({ label: "Revenir au nom automatique", run: () => renameTerminal(item, "").catch(toastError) });
+    if (!touch) list.push({ label: "Ouvrir à côté", icon: "split", hint: "Alt+clic", run: () => dispatch("select", { key: item.key, split: true }) });
+    list.push(
+      "separator",
+      { label: "Renommer", icon: "edit", hint: touch ? undefined : "double-clic", run: () => rows[item.key]?.startRename() },
+      { label: item.pinned ? "Désépingler" : "Épingler en haut", icon: "pin", run: () => setPinned(item, !item.pinned).catch(toastError) },
+      { label: item.bell ? "Couper les notifications" : "Me notifier", icon: "bell", run: () => toggleBell(item, !item.bell) },
+    );
+    if (item.customName) list.push({ label: "Revenir au nom automatique", icon: "refresh", run: () => renameTerminal(item, "").catch(toastError) });
     list.push("separator");
     if (item.online) {
       list.push(
-        { label: "Voir la machine en canevas sshx", run: () => dispatch("action", { kind: "canvas", item }) },
-        { label: "Copier le lien de partage sshx", run: () => dispatch("action", { kind: "share", item }) },
+        { label: "Voir la machine en canevas sshx", icon: "canvas", run: () => dispatch("action", { kind: "canvas", item }) },
+        { label: "Copier le lien sshx", icon: "share", run: () => dispatch("action", { kind: "share", item }) },
         "separator",
-        { label: "Fermer le terminal", danger: true, run: () => dispatch("action", { kind: "close", item }) },
+        { label: "Fermer le terminal", icon: "x", danger: true, run: () => dispatch("action", { kind: "close", item }) },
       );
     } else {
-      list.push({ label: "Oublier cette session", danger: true, run: () => dispatch("action", { kind: "forget", item }) });
+      list.push({ label: "Oublier cette session", icon: "trash", danger: true, run: () => dispatch("action", { kind: "forget", item }) });
     }
-    menu = { x: e.clientX, y: e.clientY, items: list };
+    menu = { x: pos.x, y: pos.y, items: list, alignRight: true };
   }
 
-  function openNewMenu(e: MouseEvent) {
-    const list: MenuItem[] = onlineSessions.map((s) => {
-      const machine = $machines.get(s.machineId);
-      return { label: machine?.name ?? s.hostname, hint: s.displayName, run: () => dispatch("create", { session: s }) };
-    });
-    if (list.length === 0) list.push({ label: "Aucune machine en ligne", run: () => {} });
+  function newTerminal(e: MouseEvent) {
+    if (onlineSessions.length === 1) {
+      dispatch("create", { session: onlineSessions[0] });
+      return;
+    }
+    const list: MenuItem[] = [];
+    if (onlineSessions.length) {
+      list.push({ heading: "Nouveau terminal sur" });
+      for (const s of onlineSessions) list.push({ label: machineName(s), icon: "monitor", hint: s.hostname, run: () => dispatch("create", { session: s }) });
+      list.push("separator");
+    } else {
+      list.push({ label: "Aucune machine en ligne", disabled: true, run: () => {} }, "separator");
+    }
+    list.push({ label: "Ajouter une machine…", icon: "plus", run: () => dispatch("addMachine") });
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    newMenu = { x: rect.left, y: rect.bottom + 4, items: list };
+    menu = { x: rect.right, y: rect.bottom + 6, items: list, alignRight: true };
   }
+
+  function viewMenu(e: MouseEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    menu = {
+      x: rect.right,
+      y: rect.bottom + 6,
+      alignRight: true,
+      items: [
+        { heading: "Grouper par" },
+        { label: "Projet", icon: "folder", hint: groupBy === "project" ? "✓" : "", run: () => (groupBy = "project") },
+        { label: "Machine", icon: "monitor", hint: groupBy === "machine" ? "✓" : "", run: () => (groupBy = "machine") },
+        "separator",
+        {
+          label: showOffline ? "Masquer les sessions hors ligne" : "Afficher les sessions hors ligne",
+          icon: showOffline ? "eyeOff" : "eye",
+          hint: offlineCount ? String(offlineCount) : "",
+          run: () => (showOffline = !showOffline),
+        },
+      ],
+    };
+  }
+
+  function userMenu(e: MouseEvent) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const list: MenuItem[] = [
+      { heading: $me?.user.username ?? "" },
+      { label: "Machines", icon: "monitor", run: () => goto("/machines") },
+      { label: "Ajouter une machine…", icon: "plus", run: () => dispatch("addMachine") },
+    ];
+    if ($me?.user.isAdmin) list.push({ label: "Administration", icon: "users", run: () => goto("/admin") });
+    list.push(
+      "separator",
+      { label: "Verrouiller cet appareil", icon: "lock", run: () => dispatch("lock") },
+      { label: "Se déconnecter", icon: "logout", run: () => dispatch("logout") },
+    );
+    menu = { x: rect.left, y: rect.top - 6, items: list, above: true };
+  }
+
+  $: initials = ($me?.user.displayName ?? "?")
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
 </script>
 
-<aside class="flex h-full min-h-0 flex-col bg-zinc-900">
+<aside class="flex h-full min-h-0 flex-col bg-zinc-950" data-testid="sidebar">
   <!-- Header -->
-  <div class="flex items-center gap-2 px-3 pb-2 pt-3">
-    <svg viewBox="0 0 32 32" class="h-5 w-5"><path d="M8 11l6 5-6 5" stroke="#818cf8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" /><path d="M16 22h8" stroke="#a1a1aa" stroke-width="2.5" stroke-linecap="round" /></svg>
-    <span class="text-sm font-semibold text-zinc-100">sshx</span>
+  <div class="flex h-14 shrink-0 items-center gap-2 px-4">
+    <Logo size={26} />
     <span
-      class="h-1.5 w-1.5 rounded-full"
+      class="mt-0.5 h-2 w-2 rounded-full"
       class:bg-emerald-400={$eventsConnected}
       class:bg-zinc-600={!$eventsConnected}
       title={$eventsConnected ? "Temps réel connecté" : "Reconnexion…"}
     />
     <div class="flex-1" />
-    <button class="btn px-2 py-0.5 text-xs" on:click={openNewMenu} title="Nouveau terminal">＋ Terminal</button>
-  </div>
-
-  <!-- Attention summary -->
-  <div class="flex flex-wrap gap-1 px-3 pb-2 text-xs">
-    <button class="rounded-full border px-2 py-0.5" class:border-zinc-500={filter === "all"} class:text-zinc-200={filter === "all"} class:border-zinc-700={filter !== "all"} class:text-zinc-500={filter !== "all"} on:click={() => (filter = "all")}>
-      Tous
-    </button>
-    {#if $attention.total > 0 || filter === "attention"}
-      <button class="rounded-full border px-2 py-0.5" class:border-amber-400={filter === "attention"} class:border-amber-900={filter !== "attention"} class:text-amber-300={true} on:click={() => (filter = filter === "attention" ? "all" : "attention")}>
-        {#if $attention.questions.length}{$attention.questions.length} en attente{/if}{#if $attention.questions.length && $attention.done.length} · {/if}{#if $attention.done.length}{$attention.done.length} terminé{$attention.done.length > 1 ? "s" : ""}{/if}{#if $attention.total === 0}À traiter{/if}
-      </button>
-    {/if}
-    {#if $attention.working.length > 0 || filter === "working"}
-      <button class="rounded-full border px-2 py-0.5 text-indigo-300" class:border-indigo-400={filter === "working"} class:border-indigo-900={filter !== "working"} on:click={() => (filter = filter === "working" ? "all" : "working")}>
-        {$attention.working.length} en cours
-      </button>
-    {/if}
-    <button
-      class="ml-auto rounded-full border px-2 py-0.5"
-      class:border-zinc-600={showOffline}
-      class:text-zinc-400={showOffline}
-      class:border-zinc-800={!showOffline}
-      class:text-zinc-600={!showOffline}
-      title={showOffline ? "Masquer les sessions hors ligne" : "Afficher les sessions hors ligne"}
-      on:click={() => (showOffline = !showOffline)}
-    >
-      hors ligne {showOffline ? "✓" : "✗"}
+    <button class="btn-primary px-2.5 py-1.5" on:click={newTerminal} title="Nouveau terminal" data-testid="new-terminal">
+      <Icon name="plus" size={16} stroke={2.4} />
+      Terminal
     </button>
   </div>
 
-  <!-- Search and grouping -->
+  <!-- Search and view options -->
   <div class="flex items-center gap-1.5 px-3 pb-2">
-    <input class="input py-1 text-xs" placeholder="Filtrer…" bind:value={query} />
-    <div class="flex shrink-0 overflow-hidden rounded-md border border-zinc-700 text-xs">
-      <button class="px-2 py-1" class:bg-zinc-700={groupBy === "project"} class:text-zinc-100={groupBy === "project"} class:text-zinc-500={groupBy !== "project"} on:click={() => (groupBy = "project")}>Projet</button>
-      <button class="px-2 py-1" class:bg-zinc-700={groupBy === "machine"} class:text-zinc-100={groupBy === "machine"} class:text-zinc-500={groupBy !== "machine"} on:click={() => (groupBy = "machine")}>Machine</button>
+    <div class="relative min-w-0 flex-1">
+      <Icon name="search" size={15} class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+      <input class="input py-1.5 pl-8 text-sm" placeholder="Rechercher" aria-label="Rechercher un terminal" bind:value={query} />
     </div>
+    <button class="icon-btn h-9 w-9" title="Affichage" aria-label="Options d'affichage" on:click={viewMenu}>
+      <Icon name="settings" size={17} />
+    </button>
   </div>
+
+  <!-- Attention filters, shown only when useful -->
+  {#if $attention.total > 0 || $attention.working.length > 0 || filter !== "all"}
+    <div class="flex flex-wrap gap-1.5 px-3 pb-2 text-[13px]">
+      {#if $attention.total > 0 || filter === "attention"}
+        <button
+          class="rounded-full border px-2.5 py-1 font-medium transition-colors"
+          class:border-amber-400={filter === "attention"}
+          class:bg-amber-400-10={filter === "attention"}
+          class:border-amber-800={filter !== "attention"}
+          class:text-amber-200={true}
+          data-testid="filter-attention"
+          on:click={() => (filter = filter === "attention" ? "all" : "attention")}
+        >
+          {$attention.total} à traiter
+        </button>
+      {/if}
+      {#if $attention.working.length > 0 || filter === "working"}
+        <button
+          class="rounded-full border px-2.5 py-1 font-medium text-indigo-200 transition-colors"
+          class:border-indigo-400={filter === "working"}
+          class:border-indigo-800={filter !== "working"}
+          on:click={() => (filter = filter === "working" ? "all" : "working")}
+        >
+          {$attention.working.length} en cours
+        </button>
+      {/if}
+      {#if filter !== "all"}
+        <button class="rounded-full px-2 py-1 text-zinc-400 hover:text-zinc-100" on:click={() => (filter = "all")}>Tout afficher</button>
+      {/if}
+    </div>
+  {/if}
 
   <!-- List -->
-  <div class="min-h-0 flex-1 overflow-y-auto px-1.5 pb-4">
+  <nav class="min-h-0 flex-1 overflow-y-auto px-2 pb-4" aria-label="Terminaux">
     {#if pinned.length}
-      <div class="px-1.5 pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Épinglés</div>
+      <div class="px-2.5 pb-1 pt-3 text-xs font-semibold text-zinc-500">Épinglés</div>
       {#each pinned as item (item.key)}
         <TerminalRow
           bind:this={rows[item.key]}
           {item}
+          {touch}
           context={groupBy === "project" ? "machine" : "project"}
           selected={selected.includes(item.key)}
           on:select={(e) => dispatch("select", { key: item.key, split: e.detail.split })}
           on:rename={(e) => renameTerminal(item, e.detail).catch(toastError)}
           on:bell={(e) => toggleBell(item, e.detail)}
           on:pin={(e) => setPinned(item, e.detail).catch(toastError)}
-          on:menu={(e) => openMenu(item, e.detail)}
+          on:menu={(e) => openRowMenu(item, e.detail)}
           on:dragstart={() => (dragKey = item.key)}
           on:drop={(e) => drop(pinned, item, e.detail.after)}
         />
@@ -294,28 +364,32 @@
 
     {#each groups as group (group.id)}
       {@const top = groupState(group)}
-      <div class="group/header mt-2 flex items-center gap-1.5 rounded px-1.5 py-0.5">
+      <div class="group/header mt-3 flex items-center gap-1 rounded-md pl-1 pr-1" data-testid="group" data-title={group.title}>
         <button
-          class="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-1 text-left hover:text-zinc-100"
           on:click={() => (collapsed = { ...collapsed, [group.id]: !collapsed[group.id] })}
+          aria-expanded={!collapsed[group.id]}
         >
-          <span class="w-2 text-[10px] text-zinc-500">{collapsed[group.id] ? "▸" : "▾"}</span>
-          <span class="truncate text-[11px] font-semibold uppercase tracking-wide" class:text-zinc-400={group.online} class:text-zinc-600={!group.online}>
+          <Icon name={collapsed[group.id] ? "chevronRight" : "chevronDown"} size={14} class="text-zinc-500" />
+          <Icon name={groupBy === "project" ? "folder" : "monitor"} size={14} class={group.online ? "text-zinc-400" : "text-zinc-600"} />
+          <span class="truncate text-[13px] font-semibold" class:text-zinc-300={group.online} class:text-zinc-500={!group.online}>
             {group.title}
           </span>
-          {#if group.subtitle}<span class="truncate text-[11px] text-zinc-600">{group.subtitle}</span>{/if}
-          <span class="text-[11px] text-zinc-600">{group.items.length}</span>
+          {#if group.subtitle}<span class="truncate text-xs text-zinc-500">{group.subtitle}</span>{/if}
+          <span class="text-xs text-zinc-600">{group.items.length}</span>
           {#if collapsed[group.id] && top && top.state !== "none"}
             <StatusBadge state={top.state} unread={needsAttention(top, $lastSeen)} />
           {/if}
         </button>
         {#if group.sessions.length}
           <button
-            class="rounded px-1 text-xs text-zinc-500 opacity-0 hover:text-zinc-200 group-hover/header:opacity-100"
+            class="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 group-hover/header:opacity-100"
+            class:opacity-0={!touch}
             title={groupBy === "project" ? "Nouveau terminal dans ce projet" : "Nouveau terminal sur cette machine"}
+            aria-label="Nouveau terminal ici"
             on:click={() => createIn(group)}
           >
-            ＋
+            <Icon name="plus" size={15} />
           </button>
         {/if}
       </div>
@@ -324,47 +398,55 @@
           <TerminalRow
             bind:this={rows[item.key]}
             {item}
+            {touch}
             context={groupBy === "project" ? "machine" : "project"}
             selected={selected.includes(item.key)}
             on:select={(e) => dispatch("select", { key: item.key, split: e.detail.split })}
             on:rename={(e) => renameTerminal(item, e.detail).catch(toastError)}
             on:bell={(e) => toggleBell(item, e.detail)}
             on:pin={(e) => setPinned(item, e.detail).catch(toastError)}
-            on:menu={(e) => openMenu(item, e.detail)}
+            on:menu={(e) => openRowMenu(item, e.detail)}
             on:dragstart={() => (dragKey = item.key)}
             on:drop={(e) => drop(group.items, item, e.detail.after)}
           />
         {/each}
         {#if group.items.length === 0}
-          <button class="ml-5 py-1 text-xs text-zinc-500 hover:text-zinc-300" on:click={() => createIn(group)}>＋ Ouvrir un terminal</button>
+          <button class="btn-ghost ml-6 mt-0.5 text-[13px]" on:click={() => createIn(group)}>
+            <Icon name="plus" size={14} /> Ouvrir un terminal
+          </button>
         {/if}
       {/if}
     {/each}
 
     {#if $items.length === 0}
-      <div class="px-3 py-6 text-sm text-zinc-500">
+      <div class="px-3 py-8 text-center text-sm leading-relaxed text-zinc-500">
         {#if onlineSessions.length}
-          Aucun terminal ouvert. Utilisez « ＋ Terminal ».
+          Aucun terminal ouvert.<br />Cliquez sur « Terminal » pour en ouvrir un.
         {:else}
-          Aucune machine connectée. Ajoutez-en une depuis <a class="text-indigo-300 underline" href="/machines">Machines</a>.
+          Aucune machine en ligne.
         {/if}
       </div>
+    {:else if visible.length === 0}
+      <div class="px-3 py-8 text-center text-sm text-zinc-500">Aucun terminal ne correspond.</div>
     {/if}
-  </div>
+  </nav>
 
   <!-- Footer -->
-  <div class="flex shrink-0 items-center gap-2.5 whitespace-nowrap border-t border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-    <span class="min-w-0 flex-1 truncate" title={$me?.user.username}>{$me?.user.displayName}</span>
-    <a class="hover:text-zinc-200" href="/machines">Machines</a>
-    {#if $me?.user.isAdmin}<a class="hover:text-zinc-200" href="/admin">Admin</a>{/if}
-    <button class="hover:text-zinc-200" title="Verrouiller le chiffrement sur cet appareil" on:click={() => dispatch("lock")}>⏻</button>
-    <button class="hover:text-zinc-200" on:click={() => dispatch("logout")}>Sortir</button>
+  <div class="flex shrink-0 items-center gap-2 border-t border-zinc-800/80 px-2 py-2">
+    <button class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-zinc-900" on:click={userMenu} data-testid="user-menu">
+      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-semibold text-indigo-200">{initials}</span>
+      <span class="min-w-0 flex-1 truncate text-sm text-zinc-300">{$me?.user.displayName}</span>
+      <Icon name="more" size={16} stroke={2.6} class="text-zinc-500" />
+    </button>
   </div>
 </aside>
 
 {#if menu}
-  <Menu x={menu.x} y={menu.y} items={menu.items} on:close={() => (menu = null)} />
+  <Menu x={menu.x} y={menu.y} items={menu.items} alignRight={menu.alignRight} above={menu.above} on:close={() => (menu = null)} />
 {/if}
-{#if newMenu}
-  <Menu x={newMenu.x} y={newMenu.y} items={newMenu.items} on:close={() => (newMenu = null)} />
-{/if}
+
+<style>
+  .bg-amber-400-10 {
+    background-color: rgb(251 191 36 / 0.1);
+  }
+</style>

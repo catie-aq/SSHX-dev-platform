@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 
 use crate::error::{ApiError, ApiResult};
 use crate::events::Event;
-use crate::models::{SessionView, TerminalView, AGENT_STATES, SESSION_COLUMNS};
+use crate::models::{SessionView, TerminalView, AGENT_STATES, OFFLINE_AFTER_MS, SESSION_COLUMNS};
 use crate::state::AppState;
 use crate::util::{clean_label, is_safe_id, is_sealed, now_ms, sha256_hex};
 
@@ -65,14 +65,24 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/sessions/{name}/close", post(close))
 }
 
-async fn whoami(machine: Machine) -> Json<Value> {
-    Json(json!({
+async fn whoami(State(state): State<Arc<AppState>>, machine: Machine) -> ApiResult<Json<Value>> {
+    let now = now_ms();
+    let (online,): (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM sessions WHERE machine_id = ? AND closed_at IS NULL AND last_seen_at > ?",
+    )
+    .bind(&machine.id)
+    .bind(now - OFFLINE_AFTER_MS)
+    .fetch_one(&state.db)
+    .await?;
+    Ok(Json(json!({
         "id": machine.id,
         "name": machine.name,
         "kind": machine.kind,
         "project": machine.project,
         "owner": machine.owner,
-    }))
+        "sshxServer": state.config.machine_sshx_server(),
+        "sessionsOnline": online,
+    })))
 }
 
 #[derive(Deserialize)]

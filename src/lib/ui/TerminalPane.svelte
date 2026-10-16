@@ -8,9 +8,13 @@
   import { api } from "$lib/api";
   import { me } from "$lib/auth";
   import { acquire, release, type ConnectionStatus, type SessionConnection } from "$lib/connection";
-  import { lastSeen, needsAttention } from "$lib/notify";
+  import { lastSeen, needsAttention, requestNotificationPermission } from "$lib/notify";
+  import { termFontSize, TERM_FONT_MAX, TERM_FONT_MIN } from "$lib/settings";
+  import { ago, now } from "$lib/time";
   import { toast, toastError } from "$lib/toast";
-  import { items, renameTerminal, sessionLink, sessionSecret, type TermItem } from "$lib/workspace";
+  import { items, renameTerminal, sessionLink, sessionSecret, setBell, setPinned, type TermItem } from "$lib/workspace";
+  import Icon from "./Icon.svelte";
+  import Menu, { type MenuItem } from "./Menu.svelte";
   import MobileKeys from "./MobileKeys.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import XTermView from "./XTermView.svelte";
@@ -83,23 +87,20 @@
     if (!editing || !item) return;
     editing = false;
     if (draft.trim() !== (item.customName ?? item.name)) renameTerminal(item, draft).catch(toastError);
+    focus();
   }
 
+  /** `~` for the home directory, and only the last folders of long paths. */
   function shortPath(path?: string): string | undefined {
     if (!path) return undefined;
     const home = item?.session.username ? new RegExp(`^/(home|Users)/${item.session.username}(?=/|$)`) : null;
-    return home ? path.replace(home, "~") : path;
+    const short = home ? path.replace(home, "~") : path;
+    const parts = short.split("/");
+    return short.length > 40 && parts.length > 4 ? `…/${parts.slice(-3).join("/")}` : short;
   }
 
   let confirmClose = false;
-  let confirmTimer: ReturnType<typeof setTimeout>;
   function closeTerminal() {
-    if (!confirmClose) {
-      confirmClose = true;
-      clearTimeout(confirmTimer);
-      confirmTimer = setTimeout(() => (confirmClose = false), 3000);
-      return;
-    }
     confirmClose = false;
     conn?.close(sid);
     dispatch("closePane");
@@ -109,7 +110,7 @@
     if (!item) return;
     try {
       await navigator.clipboard.writeText(await sessionLink(item.session));
-      toast("Lien sshx copié : il donne accès à toute la session de cette machine.", "success", 6000);
+      toast("Lien sshx copié. Il donne accès à toute la session de cette machine.", "success", 6000);
     } catch (err) {
       toastError(err);
     }
@@ -146,18 +147,76 @@
     }
   }
 
+  async function toggleBell() {
+    if (!item) return;
+    if (!item.bell) await requestNotificationPermission();
+    setBell(item, !item.bell).catch(toastError);
+  }
+
+  function fontBy(delta: number) {
+    termFontSize.update((s) => Math.min(TERM_FONT_MAX, Math.max(TERM_FONT_MIN, s + delta)));
+  }
+
+  let menu: { x: number; y: number; items: MenuItem[] } | null = null;
+  function openMenu(e: MouseEvent) {
+    if (!item) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const list: MenuItem[] = [
+      { label: "Renommer", icon: "edit", run: startRename },
+      { label: item.bell ? "Couper les notifications" : "Me notifier", icon: "bell", run: toggleBell },
+      { label: item.pinned ? "Désépingler" : "Épingler en haut", icon: "pin", run: () => item && setPinned(item, !item.pinned).catch(toastError) },
+      "separator",
+      { label: "Agrandir le texte", icon: "text", hint: `${$termFontSize} px`, disabled: $termFontSize >= TERM_FONT_MAX, run: () => fontBy(1) },
+      { label: "Réduire le texte", icon: "text", disabled: $termFontSize <= TERM_FONT_MIN, run: () => fontBy(-1) },
+    ];
+    if (item.online) {
+      list.push(
+        "separator",
+        { label: "Voir la machine en canevas sshx", icon: "canvas", run: openCanvas },
+        {
+          label: "Ouvrir VS Code",
+          icon: "code",
+          disabled: !$ideAvailable,
+          title: $ideAvailable ? undefined : "Lancez sshx avec --ide sur la machine",
+          hint: $ideAvailable ? undefined : "sshx --ide",
+          run: openIde,
+        },
+        { label: "Copier le lien sshx", icon: "share", run: share },
+        "separator",
+        { label: "Fermer le terminal", icon: "x", danger: true, run: () => (confirmClose = true) },
+      );
+    }
+    menu = { x: rect.right, y: rect.bottom + 6, items: list };
+  }
+
+  const BANNER: Record<string, string> = {
+    question: "pose une question",
+    permission: "demande une autorisation",
+    done: "a terminé",
+  };
+
+  let expanded = false;
+  let hiddenDone = "";
   $: agent = item?.meta?.agent;
+  $: agentLabel = agent?.kind === "claude" ? "Claude" : agent?.kind ?? "L'agent";
   $: urgent = item?.state === "question" || item?.state === "permission";
   $: unread = item ? needsAttention(item, $lastSeen) : false;
+  $: doneStamp = item?.state === "done" ? `${item.key}:${item.since}` : "";
+  $: showBanner = !!item?.online && !!agent && (urgent || (item?.state === "done" && !!agent.message && hiddenDone !== doneStamp));
   $: shellMissing = conn && $status === "connected" && $shells.size > 0 && !$shells.has(sid);
-  $: fontSize = mobile ? 12 : 14;
+  $: fontSize = mobile ? Math.max(TERM_FONT_MIN, $termFontSize - 1) : $termFontSize;
+  $: subtitle = item
+    ? [item.machine.name, shortPath(item.meta?.cwd), item.meta?.git?.branch].filter(Boolean).join(" · ")
+    : "";
 </script>
 
-<div class="flex h-full min-h-0 flex-col bg-zinc-900" class:opacity-95={!active && !mobile}>
+<div class="flex h-full min-h-0 flex-col bg-[#181818]" class:opacity-90={!active && !mobile} data-testid="terminal-pane" data-key={itemKey}>
   <!-- Header -->
-  <div class="flex shrink-0 items-center gap-2 border-b border-zinc-800 px-2 py-1.5">
+  <header class="flex h-14 shrink-0 items-center gap-2.5 border-b border-zinc-800 px-3">
     {#if mobile}
-      <button class="px-1.5 text-lg leading-none text-zinc-400" on:click={() => dispatch("back")} aria-label="Retour">‹</button>
+      <button class="icon-btn -ml-1 h-9 w-9" on:click={() => dispatch("back")} aria-label="Retour à la liste">
+        <Icon name="chevronLeft" size={22} />
+      </button>
     {/if}
     <StatusBadge state={item?.state ?? "none"} online={item?.online ?? false} {unread} size="md" />
     <div class="min-w-0 flex-1">
@@ -166,86 +225,137 @@
         <input
           bind:this={nameInput}
           bind:value={draft}
-          class="w-full rounded border border-indigo-500 bg-zinc-900 px-1 text-sm text-zinc-100 outline-none"
+          class="w-full max-w-md rounded-md border border-indigo-400 bg-zinc-950 px-1.5 py-px text-[15px] font-semibold text-zinc-100 outline-none"
+          aria-label="Nom du terminal"
           on:blur={commitRename}
           on:keydown={(e) => {
             if (e.key === "Enter") commitRename();
-            if (e.key === "Escape") editing = false;
+            if (e.key === "Escape") {
+              editing = false;
+              focus();
+            }
           }}
           autofocus
         />
       {:else}
-        <button class="block max-w-full truncate text-left text-sm font-medium text-zinc-100" title="Double-cliquer pour renommer" on:dblclick={startRename}>
+        <button
+          class="block max-w-full truncate text-left text-[15px] font-semibold leading-6 text-zinc-50"
+          title="Double-cliquer pour renommer"
+          data-testid="pane-title"
+          on:dblclick={startRename}
+        >
           {item?.name ?? "Ouverture…"}
         </button>
       {/if}
-      {#if item}
-        <div class="truncate font-mono text-[11px] text-zinc-500">
-          {item.machine.name}{#if item.meta?.cwd} · {shortPath(item.meta.cwd)}{/if}{#if item.meta?.git?.branch} · {item.meta.git.branch}{/if}
-        </div>
-      {/if}
+      {#if subtitle}<div class="truncate font-mono text-xs leading-5 text-zinc-500" title={item?.meta?.cwd}>{subtitle}</div>{/if}
     </div>
     {#if item?.online}
-      <div class="flex shrink-0 items-center gap-1 text-xs">
-        {#if conn && $status !== "connected"}
-          <span class="text-zinc-500">{$status === "connecting" ? "connexion…" : $status === "error" ? "erreur" : "déconnecté"}</span>
-        {/if}
-        {#if !$canWrite}<span class="rounded border border-zinc-700 px-1 text-zinc-400" title="Session en lecture seule">lecture</span>{/if}
-        {#if !mobile}
-          <button class="btn px-1.5 py-0.5 text-xs" title="Nouveau terminal sur cette machine" on:click={() => item && dispatch("create", item)}>＋</button>
-          {#if canSplit}<button class="btn px-1.5 py-0.5 text-xs" title="Diviser (Alt+clic dans la liste)" on:click={() => dispatch("split")}>⇆</button>{/if}
-          <button class="btn px-1.5 py-0.5 text-xs" title="Voir toute la machine en canevas sshx" on:click={openCanvas}>Canevas</button>
-          <button class="btn px-1.5 py-0.5 text-xs" title={$ideAvailable ? "Ouvrir VS Code sur cette machine" : "Lancez sshx avec --ide pour activer VS Code"} disabled={!$ideAvailable} on:click={openIde}>VS Code</button>
-          <button class="btn px-1.5 py-0.5 text-xs" title="Copier le lien sshx de la session" on:click={share}>Partager</button>
-        {/if}
-        <button class="btn px-1.5 py-0.5 text-xs" class:btn-danger={confirmClose} title="Fermer le terminal (tue le shell)" on:click={closeTerminal}>
-          {confirmClose ? "Confirmer" : "Fermer"}
+      {#if conn && $status !== "connected"}
+        <span class="text-sm text-zinc-500">{$status === "connecting" ? "Connexion…" : $status === "error" ? "Erreur" : "Reconnexion…"}</span>
+      {/if}
+      {#if !$canWrite}<span class="rounded-md border border-zinc-700 px-1.5 py-0.5 text-xs text-zinc-400" title="Session en lecture seule">Lecture seule</span>{/if}
+      {#if !mobile}
+        <button class="icon-btn" title="Nouveau terminal sur {item.machine.name}" aria-label="Nouveau terminal" on:click={() => item && dispatch("create", item)}>
+          <Icon name="plus" size={18} />
         </button>
-      </div>
+        {#if canSplit}
+          <button class="icon-btn" title="Diviser l'écran (Alt+clic dans la liste)" aria-label="Diviser" on:click={() => dispatch("split")}>
+            <Icon name="split" size={17} />
+          </button>
+        {/if}
+      {/if}
+    {/if}
+    {#if item}
+      <button class="icon-btn" title="Actions" aria-label="Actions du terminal" data-testid="pane-menu" on:click={openMenu}>
+        <Icon name="more" size={18} stroke={2.6} />
+      </button>
     {/if}
     {#if closable && !mobile}
-      <button class="px-1 text-zinc-500 hover:text-zinc-200" title="Retirer ce panneau" on:click={() => dispatch("closePane")}>✕</button>
+      <button class="icon-btn" title="Retirer ce panneau (le terminal continue)" aria-label="Retirer le panneau" on:click={() => dispatch("closePane")}>
+        <Icon name="x" size={17} />
+      </button>
     {/if}
-  </div>
+  </header>
+
+  {#if confirmClose && item}
+    <div class="flex shrink-0 flex-wrap items-center gap-3 border-b border-red-900/60 bg-red-950/50 px-4 py-2.5 text-sm text-red-100">
+      <span class="min-w-0 flex-1">Fermer « {item.name} » ? Le shell et les programmes qu'il exécute seront arrêtés.</span>
+      <button class="btn" on:click={() => (confirmClose = false)}>Annuler</button>
+      <button class="btn-danger" data-testid="confirm-close" on:click={closeTerminal}>Fermer le terminal</button>
+    </div>
+  {/if}
 
   <!-- Agent banner -->
-  {#if item?.online && agent && (urgent || (item.state === "done" && agent.message))}
-    <button
-      class="flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-left text-xs"
-      class:border-amber-900={urgent}
-      class:bg-amber-950={urgent}
-      class:text-amber-200={urgent}
-      class:border-zinc-800={!urgent}
-      class:text-zinc-400={!urgent}
-      on:click={focus}
+  {#if showBanner && item && agent}
+    <div
+      class="flex shrink-0 items-start gap-3 border-b px-4 py-2.5"
+      class:border-amber-900={item.state === "question"}
+      class:bg-amber-950={item.state === "question"}
+      class:border-orange-900={item.state === "permission"}
+      class:bg-orange-950={item.state === "permission"}
+      class:border-zinc-800={item.state === "done"}
+      class:bg-zinc-900={item.state === "done"}
+      data-testid="agent-banner"
+      data-state={item.state}
     >
-      <span class="shrink-0 font-semibold">
-        {item.state === "question" ? "Question" : item.state === "permission" ? "Autorisation" : "Terminé"}
-      </span>
-      <span class="line-clamp-3 whitespace-pre-wrap">{agent.message ?? agent.tool ?? ""}</span>
-    </button>
+      <div class="pt-0.5"><StatusBadge state={item.state} unread={item.state === "done"} /></div>
+      <button class="min-w-0 flex-1 text-left" on:click={() => (expanded = !expanded)} title={expanded ? "Réduire" : "Tout afficher"}>
+        <div class="flex items-baseline gap-2 text-sm">
+          <span
+            class="font-semibold"
+            class:text-amber-200={item.state === "question"}
+            class:text-orange-200={item.state === "permission"}
+            class:text-emerald-300={item.state === "done"}
+          >
+            {agentLabel} {BANNER[item.state]}
+          </span>
+          <span class="text-xs text-zinc-500">{ago(item.since, $now)}</span>
+        </div>
+        {#if agent.message || agent.tool}
+          <p
+            class="mt-0.5 whitespace-pre-wrap text-[14px] leading-relaxed"
+            class:line-clamp-3={!expanded}
+            class:text-zinc-100={urgent}
+            class:text-zinc-300={!urgent}
+            data-testid="agent-message"
+          >
+            {agent.message ?? agent.tool}
+          </p>
+        {/if}
+      </button>
+      {#if item.state === "done"}
+        <button class="icon-btn -mr-1 h-7 w-7" title="Masquer" aria-label="Masquer" on:click={() => (hiddenDone = doneStamp)}>
+          <Icon name="x" size={15} />
+        </button>
+      {:else}
+        <button class="btn shrink-0 py-1" on:click={focus}>Répondre</button>
+      {/if}
+    </div>
   {/if}
 
   <!-- Body -->
   <div class="relative min-h-0 flex-1">
     {#if !item}
-      <div class="flex h-full items-center justify-center text-sm text-zinc-500">Ouverture du terminal…</div>
+      <div class="flex h-full items-center justify-center text-[15px] text-zinc-500">Ouverture du terminal…</div>
     {:else if !item.online}
-      <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-zinc-500">
-        <p>La session de <span class="text-zinc-300">{item.machine.name}</span> est hors ligne.</p>
-        <p class="text-xs">Relancez sshx sur la machine pour retrouver ses terminaux.</p>
-        <button class="btn-danger" on:click={forget}>Oublier cette session</button>
+      <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+        <p class="text-[15px] text-zinc-300"><span class="font-semibold">{item.machine.name}</span> est hors ligne.</p>
+        <p class="max-w-sm text-sm text-zinc-500">
+          Relancez <code class="font-mono text-zinc-400">sshx</code> sur la machine pour retrouver ses terminaux. Une session
+          lancée avec <code class="font-mono text-zinc-400">--slug</code> garde les mêmes noms.
+        </p>
+        <button class="btn-danger mt-2" on:click={forget}>Oublier cette session</button>
       </div>
     {:else if connError || $errorStore}
-      <div class="flex h-full items-center justify-center p-6 text-center text-sm text-red-400">{connError ?? $errorStore}</div>
+      <div class="flex h-full items-center justify-center p-6 text-center text-[15px] text-red-400">{connError ?? $errorStore}</div>
     {:else if shellMissing}
-      <div class="flex h-full items-center justify-center text-sm text-zinc-500">Ce terminal a été fermé.</div>
+      <div class="flex h-full items-center justify-center text-[15px] text-zinc-500">Ce terminal a été fermé.</div>
     {:else if conn}
       {#key `${conn.name}/${sid}`}
         <XTermView bind:this={view} {conn} {sid} {fontSize} bind:ctrlArmed />
       {/key}
     {:else}
-      <div class="flex h-full items-center justify-center text-sm text-zinc-500">Déchiffrement…</div>
+      <div class="flex h-full items-center justify-center text-[15px] text-zinc-500">Déchiffrement…</div>
     {/if}
   </div>
 
@@ -253,3 +363,7 @@
     <MobileKeys bind:ctrlArmed on:key={(e) => view?.send(e.detail)} />
   {/if}
 </div>
+
+{#if menu}
+  <Menu x={menu.x} y={menu.y} items={menu.items} alignRight on:close={() => (menu = null)} />
+{/if}

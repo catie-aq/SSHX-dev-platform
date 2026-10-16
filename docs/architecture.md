@@ -120,13 +120,25 @@ Compléments côté sshx :
 Pour Gemini CLI, Codex ou OpenCode, le même chemin servira : `sshx hook <agent>` et une table de
 correspondance par agent dans `crates/sshx/src/agent.rs`.
 
+## Mise en route d'une machine
+
+L'assistant « Ajouter une machine » crée la machine et sa clé dans le navigateur, puis affiche une
+seule commande : `sshx platform enroll <url> <jeton> && sshx`. `enroll` vérifie le jeton, enregistre
+dans `~/.sshx/platform.json` l'URL, le jeton et le serveur sshx annoncé, et installe les hooks Claude
+Code. Le `sshx` qui suit n'a donc besoin d'aucune option. La page suit l'arrivée de la session par
+le flux SSE et ouvre le premier terminal (une session sshx neuve n'en a aucun : la page le crée).
+
+`sshx platform status` vérifie chaque maillon et sort avec le code 1 si l'un d'eux échoue :
+enrôlement, jeton, serveur sshx joignable, sessions en ligne, hooks Claude (et existence du binaire
+qu'ils appellent) et, dans un terminal sshx, le socket de hooks.
+
 ## Protocole machine ↔ plateforme
 
 Authentification : `Authorization: Bearer smt_…`.
 
 | Requête | Rôle |
 |---|---|
-| `GET /api/agent/v1/whoami` | Vérifier le jeton (`sshx platform enroll`, `status`) |
+| `GET /api/agent/v1/whoami` | Vérifier le jeton (`sshx platform enroll`, `status`). Renvoie aussi `sshxServer`, l'adresse du serveur sshx à utiliser (`PLATFORM_SSHX_PUBLIC_URL`, sinon `PLATFORM_SSHX_SERVER`), et `sessionsOnline`. |
 | `POST /api/agent/v1/sessions` | Annoncer une session : nom, URL sans clé, `keyEnc`, hôte, OS, version |
 | `PUT /api/agent/v1/sessions/{name}/state` | Liste complète des terminaux `{sid, state, since, agent, metaEnc}`. Sert aussi de battement de cœur (15 s). `404` : la plateforme a oublié la session, la machine se réinscrit. |
 | `POST /api/agent/v1/sessions/{name}/close` | Fermeture propre (Ctrl-C) |
@@ -141,6 +153,19 @@ jusqu'à ce qu'on l'oublie.
 contiennent que du chiffré. Le passage à PostgreSQL pour une version multi-organisations ne
 demande que de changer de pilote sqlx et d'adapter quelques requêtes `ON CONFLICT`.
 
+## Préférences
+
+Noms, épinglage, ordre et cloches sont enregistrés par utilisateur (`terminal_prefs`) : sur une
+machine partagée, chacun garde les siens. Les noms sont scellés avec la clé de la machine. L'état
+« vu » (badge vert « terminé non lu ») est gardé par appareil, dans le navigateur.
+
+## Tests
+
+`npm run verify` enchaîne les tests Rust de sshx et de la plateforme, les tests de chiffrement, le
+typage et le scénario full-stack `tests/e2e/` (Playwright), qui démarre un vrai sshx-server, la
+plateforme et de vrais clients sshx isolés dans un `HOME` temporaire. Ce scénario vérifie aussi que
+la base ne contient en clair ni noms de terminaux, ni chemins, ni questions d'agents, ni sorties.
+
 ## Limites connues et suite
 
 - **Entra ID** : le flux OIDC est implémenté et compilé, mais pas encore testé contre un vrai
@@ -148,6 +173,8 @@ demande que de changer de pilote sqlx et d'adapter quelques requêtes `ON CONFLI
 - **IDE à la demande** : la machine doit avoir été lancée avec `sshx --ide`. Le lancement depuis la
   plateforme demandera une commande plateforme → machine (la réponse au rapport d'état est prévue
   pour la porter).
+- **Non-lu par appareil** : un travail terminé vu sur l'ordinateur reste « non lu » sur le
+  téléphone.
 - **Notifications** : uniquement quand un onglet de la plateforme est ouvert. Le Web Push
   (service worker) permettrait de notifier un téléphone verrouillé.
 - **Persistance** : noms et réglages sont rattachés à `session/terminal`. Sans `--slug`, une

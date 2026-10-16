@@ -119,6 +119,22 @@ function applyEvent(ev: ServerEvent) {
 
 export const eventsConnected = writable(false);
 
+let stopLiveEvents: (() => void) | null = null;
+
+/** Load the workspace and keep it live (idempotent). */
+export function startLive() {
+  if (stopLiveEvents) return;
+  loadWorkspace().catch(console.error);
+  stopLiveEvents = connectEvents();
+}
+
+/** Stop live updates (logout, vault lock). */
+export function stopLive() {
+  stopLiveEvents?.();
+  stopLiveEvents = null;
+  eventsConnected.set(false);
+}
+
 /** Subscribe to live updates. Returns a function closing the stream. */
 export function connectEvents(): () => void {
   const source = new EventSource("/api/events");

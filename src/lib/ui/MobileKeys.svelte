@@ -22,9 +22,9 @@
   ];
 </script>
 
-<div class="flex shrink-0 gap-1 overflow-x-auto border-t border-zinc-800 bg-zinc-900 px-1.5 py-1.5">
+<div class="flex shrink-0 gap-1.5 overflow-x-auto border-t border-zinc-800 bg-zinc-950 px-2 py-2" data-testid="mobile-keys">
   <button
-    class="min-w-[2.6rem] rounded-md border px-2 py-1.5 font-mono text-xs"
+    class="min-w-[3rem] rounded-lg border px-2.5 py-2 font-mono text-sm"
     class:border-indigo-400={ctrlArmed}
     class:text-indigo-300={ctrlArmed}
     class:border-zinc-700={!ctrlArmed}
@@ -35,7 +35,7 @@
   </button>
   {#each KEYS as [label, seq]}
     <button
-      class="min-w-[2.4rem] rounded-md border border-zinc-700 px-2 py-1.5 font-mono text-xs text-zinc-300 active:bg-zinc-700"
+      class="min-w-[2.75rem] rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 font-mono text-sm text-zinc-200 active:bg-zinc-700"
       on:pointerdown|preventDefault={() => dispatch("key", seq)}
     >
       {label}

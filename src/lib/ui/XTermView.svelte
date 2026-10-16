@@ -96,7 +96,7 @@
       fontSize,
       fontWeight: 400,
       fontWeightBold: 500,
-      lineHeight: 1.06,
+      lineHeight: 1.1,
       scrollback: 10000,
       theme: themes[defaultTheme],
     });
@@ -152,6 +152,6 @@
   });
 </script>
 
-<div class="h-full w-full overflow-hidden px-2 py-1" style:background={themes[defaultTheme].background}>
+<div class="h-full w-full overflow-hidden py-1.5 pl-3 pr-1" style:background={themes[defaultTheme].background}>
   <div bind:this={el} class="h-full w-full" />
 </div>

@@ -96,7 +96,14 @@ export type UserInfo = {
   publicKey: string | null;
 };
 
-export type PlatformConfig = { authMode: "dev" | "oidc"; version: string };
+export type PlatformConfig = {
+  authMode: "dev" | "oidc";
+  version: string;
+  /** Public URL of the platform, if configured. */
+  publicUrl: string | null;
+  /** sshx server as reached from machines. */
+  sshxServer: string;
+};
 
 export class ApiError extends Error {
   constructor(

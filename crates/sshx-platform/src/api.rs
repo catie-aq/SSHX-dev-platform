@@ -47,6 +47,8 @@ async fn config(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(json!({
         "authMode": match state.config.auth { AuthMode::Dev => "dev", AuthMode::Oidc => "oidc" },
         "version": env!("CARGO_PKG_VERSION"),
+        "publicUrl": state.config.public_url.as_deref().map(|u| u.trim_end_matches('/')),
+        "sshxServer": state.config.machine_sshx_server(),
     }))
 }
 

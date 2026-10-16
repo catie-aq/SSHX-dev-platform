@@ -16,26 +16,45 @@
     color-scheme: dark;
     height: 100%;
     overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :focus-visible {
+    outline: 2px solid theme("colors.indigo.400");
+    outline-offset: 1px;
+  }
+  /* The terminal manages its own focus. */
+  .xterm-helper-textarea:focus-visible {
+    outline: none;
   }
 }
 
 @layer components {
   .panel {
-    @apply border border-zinc-700 bg-zinc-800 rounded-lg;
+    @apply rounded-xl border border-zinc-800 bg-zinc-900;
   }
   .btn {
-    @apply inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-sm text-zinc-200 hover:bg-zinc-700 disabled:opacity-50 transition-colors;
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-500;
+    @apply btn border-indigo-500 bg-indigo-600 text-white hover:border-indigo-400 hover:bg-indigo-500;
   }
   .btn-danger {
-    @apply btn border-red-900 text-red-300 hover:bg-red-950;
+    @apply btn border-red-900 bg-red-950/40 text-red-200 hover:border-red-700 hover:bg-red-950;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100;
+  }
+  .icon-btn {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .input {
-    @apply w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 outline-none focus:border-indigo-500;
+    @apply w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-[15px] text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-indigo-400 disabled:opacity-50;
   }
   .label {
-    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500;
+    @apply mb-1.5 block text-sm font-medium text-zinc-300;
+  }
+  .kbd {
+    @apply rounded border border-zinc-700 bg-zinc-800 px-1.5 py-px font-mono text-[11px] text-zinc-300;
   }
 }

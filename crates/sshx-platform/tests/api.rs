@@ -21,6 +21,7 @@ async fn start() -> Harness {
         database: format!("sqlite://{}", dir.path().join("t.db").display()),
         public_url: None,
         sshx_server: "http://127.0.0.1:9".into(),
+        sshx_public_url: Some("https://sshx.example/".into()),
         static_dir: dir.path().into(),
         auth: AuthMode::Dev,
         oidc_issuer: None,
@@ -74,6 +75,18 @@ impl Harness {
         }
         rb.send().await.unwrap().status()
     }
+
+    async fn agent_json(&self, path: &str, token: &str) -> Value {
+        self.http
+            .get(format!("{}/api/agent/v1{path}", self.base))
+            .header(AUTHORIZATION, format!("Bearer {token}"))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap()
+    }
 }
 
 fn vault() -> Value {
@@ -124,7 +137,11 @@ async fn full_flow() {
         "name": "abc123", "url": "https://sshx.example/s/abc123", "sshxServer": "https://sshx.example",
         "displayName": "alice@gpu-1", "keyEnc": "v1.c2Vzc2lvbg", "hostname": "gpu-1", "os": "linux",
     });
+    let who = h.agent_json("/whoami", &token).await;
+    assert_eq!(who["sessionsOnline"], 0);
+    assert_eq!(who["sshxServer"], "https://sshx.example", "public sshx URL announced to machines");
     assert_eq!(h.agent("POST", "/sessions", &token, Some(reg)).await, StatusCode::OK);
+    assert_eq!(h.agent_json("/whoami", &token).await["sessionsOnline"], 1);
     let report = json!({ "terminals": [
         { "sid": 1, "state": "working", "since": 5, "agent": "claude", "metaEnc": "v1.bWV0YQ" },
         { "sid": 2, "state": "none", "metaEnc": "v1.bWV0YTI" },

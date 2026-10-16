@@ -3,6 +3,7 @@
 
   import { api } from "$lib/api";
   import { config, me } from "$lib/auth";
+  import Icon from "$lib/ui/Icon.svelte";
 
   let data: any = null;
   let error: string | null = null;
@@ -15,61 +16,65 @@
     }
   });
 
-  const fmt = (ts: number | null) => (ts ? new Date(ts).toLocaleString("fr-FR") : "—");
+  const fmt = (ts: number | null) => (ts ? new Date(ts).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : "—");
 </script>
 
-<div class="mx-auto max-w-5xl px-4 py-6">
-  <div class="flex items-center gap-3">
-    <a href="/" class="text-sm text-zinc-500 hover:text-zinc-200">‹ Terminaux</a>
-    <h1 class="text-lg font-semibold text-zinc-100">Administration</h1>
+<div class="mx-auto max-w-5xl px-4 py-6 sm:py-10">
+  <a href="/" class="btn-ghost -ml-2.5"><Icon name="chevronLeft" size={16} /> Terminaux</a>
+  <div class="mt-3 flex flex-wrap items-center gap-3">
+    <h1 class="text-2xl font-semibold text-zinc-50">Administration</h1>
     {#if $config?.authMode === "dev"}
-      <span class="rounded border border-yellow-900 px-1.5 text-[11px] text-yellow-300">mode dev : tout le monde est admin</span>
+      <span class="rounded-md bg-amber-950/60 px-2 py-0.5 text-xs text-amber-200">mode dev : tout le monde est admin</span>
     {/if}
   </div>
-  <p class="mt-1 text-xs text-zinc-500">
-    Métadonnées uniquement : le contenu des terminaux, les dossiers et les noms personnalisés restent chiffrés.
+  <p class="mt-2 text-[15px] text-zinc-400">
+    Métadonnées uniquement : le contenu des terminaux, les dossiers et les noms des terminaux restent chiffrés.
   </p>
 
   {#if !$me?.user.isAdmin}
-    <p class="mt-6 text-sm text-red-400">Réservé aux administrateurs.</p>
+    <p class="mt-6 text-[15px] text-red-400">Réservé aux administrateurs.</p>
   {:else if error}
-    <p class="mt-6 text-sm text-red-400">{error}</p>
+    <p class="mt-6 text-[15px] text-red-400">{error}</p>
   {:else if data}
-    <h2 class="mt-6 text-sm font-semibold text-zinc-300">Utilisateurs ({data.users.length})</h2>
-    <table class="mt-2 w-full text-left text-sm">
-      <thead class="text-xs text-zinc-500"><tr><th class="py-1">Nom</th><th>Identifiant</th><th>Chiffrement</th><th>Admin</th><th>Dernière connexion</th></tr></thead>
-      <tbody>
-        {#each data.users as u}
-          <tr class="border-t border-zinc-800"><td class="py-1.5 text-zinc-200">{u.displayName}</td><td class="font-mono text-xs">{u.username}</td><td>{u.hasVault ? "oui" : "non"}</td><td>{u.isAdmin ? "oui" : ""}</td><td class="text-xs">{fmt(u.lastLoginAt)}</td></tr>
-        {/each}
-      </tbody>
-    </table>
-
-    <h2 class="mt-6 text-sm font-semibold text-zinc-300">Machines ({data.machines.length})</h2>
-    <table class="mt-2 w-full text-left text-sm">
-      <thead class="text-xs text-zinc-500"><tr><th class="py-1">Nom</th><th>Type</th><th>Propriétaire</th><th>Accès</th><th>Vue</th></tr></thead>
-      <tbody>
-        {#each data.machines as m}
-          <tr class="border-t border-zinc-800"><td class="py-1.5 text-zinc-200">{m.name}</td><td>{m.kind}{m.project ? ` · ${m.project}` : ""}</td><td>{m.owner}</td><td>{m.members}</td><td class="text-xs">{fmt(m.lastSeenAt)}</td></tr>
-        {/each}
-      </tbody>
-    </table>
-
-    <h2 class="mt-6 text-sm font-semibold text-zinc-300">Sessions sshx ({data.sessions.length})</h2>
-    <table class="mt-2 w-full text-left text-sm">
-      <thead class="text-xs text-zinc-500"><tr><th class="py-1">Session</th><th>Hôte</th><th>État</th><th>Terminaux</th><th>Version</th><th>Démarrée</th></tr></thead>
-      <tbody>
-        {#each data.sessions as s}
-          <tr class="border-t border-zinc-800">
-            <td class="py-1.5 font-mono text-xs text-zinc-200">{s.name}</td>
-            <td>{s.hostname}</td>
-            <td class:text-emerald-400={s.online} class:text-zinc-500={!s.online}>{s.online ? "en ligne" : "hors ligne"}</td>
-            <td class="text-xs">{Object.entries(s.terminals).map(([k, v]) => `${v} ${k}`).join(", ") || "0"}</td>
-            <td class="text-xs">{s.version}</td>
-            <td class="text-xs">{fmt(s.startedAt)}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+    {#each [
+      { title: "Utilisateurs", rows: data.users, kind: "users" },
+      { title: "Machines", rows: data.machines, kind: "machines" },
+      { title: "Sessions sshx", rows: data.sessions, kind: "sessions" },
+    ] as section}
+      <section class="panel mt-6 overflow-x-auto" data-testid="admin-{section.kind}">
+        <h2 class="border-b border-zinc-800 px-5 py-3 text-[15px] font-semibold text-zinc-100">
+          {section.title} <span class="font-normal text-zinc-500">{section.rows.length}</span>
+        </h2>
+        <table class="w-full text-left text-sm">
+          <thead class="text-xs text-zinc-500">
+            {#if section.kind === "users"}
+              <tr><th class="px-5 py-2 font-medium">Nom</th><th class="font-medium">Identifiant</th><th class="font-medium">Phrase secrète</th><th class="font-medium">Admin</th><th class="pr-5 font-medium">Dernière connexion</th></tr>
+            {:else if section.kind === "machines"}
+              <tr><th class="px-5 py-2 font-medium">Nom</th><th class="font-medium">Type</th><th class="font-medium">Propriétaire</th><th class="font-medium">Accès</th><th class="pr-5 font-medium">Vue</th></tr>
+            {:else}
+              <tr><th class="px-5 py-2 font-medium">Session</th><th class="font-medium">Hôte</th><th class="font-medium">État</th><th class="font-medium">Terminaux</th><th class="font-medium">Version</th><th class="pr-5 font-medium">Démarrée</th></tr>
+            {/if}
+          </thead>
+          <tbody class="text-zinc-300">
+            {#each section.rows as r}
+              <tr class="border-t border-zinc-800/70">
+                {#if section.kind === "users"}
+                  <td class="px-5 py-2.5 text-zinc-100">{r.displayName}</td><td class="font-mono text-[13px]">{r.username}</td><td>{r.hasVault ? "oui" : "non"}</td><td>{r.isAdmin ? "oui" : ""}</td><td class="pr-5">{fmt(r.lastLoginAt)}</td>
+                {:else if section.kind === "machines"}
+                  <td class="px-5 py-2.5 text-zinc-100">{r.name}</td><td>{r.kind === "project" ? "projet" : "personnelle"}{r.project ? ` · ${r.project}` : ""}</td><td>{r.owner}</td><td>{r.members}</td><td class="pr-5">{fmt(r.lastSeenAt)}</td>
+                {:else}
+                  <td class="px-5 py-2.5 font-mono text-[13px] text-zinc-100">{r.name}</td>
+                  <td>{r.hostname}</td>
+                  <td class:text-emerald-400={r.online} class:text-zinc-500={!r.online}>{r.online ? "en ligne" : "hors ligne"}</td>
+                  <td>{Object.entries(r.terminals).map(([k, v]) => `${v} ${k}`).join(", ") || "0"}</td>
+                  <td>{r.version}</td>
+                  <td class="pr-5">{fmt(r.startedAt)}</td>
+                {/if}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </section>
+    {/each}
   {/if}
 </div>

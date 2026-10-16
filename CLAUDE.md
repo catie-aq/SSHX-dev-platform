@@ -24,9 +24,13 @@ src/                          SvelteKit SPA (Svelte 3, Tailwind 3 — same versi
   lib/workspace.ts            Live model: rows → decrypted TermItems, prefs
   lib/connection.ts           sshx WebSocket protocol client (pooled per session)
   lib/notify.ts               Unread/attention tracking, browser notifications
-  lib/ui/                     Sidebar, TerminalRow, TerminalPane, XTermView, VaultGate…
-  routes/                     / (workspace), /login, /machines, /admin
+  lib/settings.ts             Per-device display preferences (terminal font size, sidebar width)
+  lib/ui/                     Sidebar, TerminalRow, TerminalPane, XTermView, VaultGate,
+                              AddMachine (enroll wizard), Menu, Modal, Icon…
+  routes/                     / (workspace + first-run wizard), /login, /machines, /admin
 tests/crypto.test.mjs         Node tests of crypto.ts, incl. a vector shared with Rust
+tests/e2e/                    Playwright full-stack scenario (real sshx-server, platform, clients)
+scripts/verify.sh             Every check of both repos (npm run verify)
 ```
 
 `$sshx` aliases `../sshx/src/lib` (override with `SSHX_SRC`). Packages imported by those files
@@ -42,6 +46,15 @@ tests/crypto.test.mjs         Node tests of crypto.ts, incl. a vector shared wit
 - UI follows sshx's design principles (dark zinc palette, dense panels, `emerald-400` ok,
   `red-400` error, `indigo-400` AI working, amber for questions). UI text is French.
 - Agent state names are shared across Rust and TS: `none|idle|working|question|permission|done`.
+- First run is a 3-step flow (login, passphrase, first machine). Connecting a machine is one
+  command from `AddMachine.svelte`: `sshx platform enroll <url> <token> && sshx`; keep it a single
+  copy-paste. A fresh sshx session has no shell: the wizard creates the first terminal.
+- Prefs (names, pins, order, bells) are per user, even on shared machines; "seen" state is per
+  device (localStorage).
+- UI text sizes: 15px for primary names, 12px minimum (no `text-[11px]` or smaller for content).
+- Elements driven by the e2e tests carry `data-testid` (and `data-state`, `data-online`,
+  `data-unread` on rows); `window.__sshxPlatform.terminalText(session, sid)` exposes decrypted
+  output (already in page memory) to the tests. Update `tests/e2e/platform.spec.ts` with UI changes.
 
 ## Commands
 
@@ -49,6 +62,8 @@ tests/crypto.test.mjs         Node tests of crypto.ts, incl. a vector shared wit
 npm install && mprocs     # sshx-server + platform + vite (see mprocs.yaml)
 cargo test                # server
 npm test && npm run check # frontend
+npm run e2e               # full-stack scenario (builds sshx, platform and SPA first)
+npm run verify            # everything above, plus sshx's own tests
 npm run build             # SPA into build/, served by the Rust server
 ```
 

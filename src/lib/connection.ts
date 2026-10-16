@@ -186,6 +186,11 @@ export class SessionConnection {
     });
   }
 
+  /** Decrypted output kept for a shell (tests and debugging). */
+  text(sid: number): string {
+    return this.#buffers.get(sid) ?? "";
+  }
+
   /** Send input bytes to a shell. */
   async input(sid: number, data: Uint8Array) {
     if (this.#counter === 0n) {
@@ -277,3 +282,13 @@ export function closeAll() {
   pool.clear();
 }
 
+// Read access to decrypted output for end-to-end tests. The page holds this
+// plaintext anyway; nothing new is exposed.
+if (typeof window !== "undefined") {
+  (window as any).__sshxPlatform = {
+    async terminalText(session: string, sid: number): Promise<string | null> {
+      const p = pool.get(session);
+      return p ? (await p).text(sid) : null;
+    },
+  };
+}

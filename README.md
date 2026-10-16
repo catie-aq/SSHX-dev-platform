@@ -23,6 +23,8 @@ Elle s'appuie sur [sshx (fork CATIE)](../sshx) sans le remplacer :
 - **Cloche par terminal** : notification du navigateur quand cet agent termine, pose une question ou
   demande une autorisation.
 - **Mobile** : liste puis terminal plein écran, barre de touches (Ctrl, Esc, Tab, flèches, ^C…).
+- **Personnel** : noms, épinglage, ordre et cloches sont propres à chaque utilisateur, y compris sur
+  une machine partagée. Taille du texte du terminal et largeur de la liste réglables.
 - **Machines** : jetons d'enrôlement par machine, rotation, révocation, partage chiffré avec
   d'autres utilisateurs (machines de projet).
 - **VS Code** à la demande sur les machines lancées avec `sshx --ide`, protégé par un jeton dérivé
@@ -36,24 +38,38 @@ Prérequis : Rust stable, Node 20, et le dépôt `sshx` cloné à côté (`../ss
 
 ```shell
 npm install
-mprocs            # sshx-server, plateforme, frontend Vite
+mprocs            # sshx-server (8051), plateforme (8060), interface Vite (5180)
 ```
 
-Ou à la main :
+Ouvrez http://localhost:5180 et suivez les trois étapes affichées :
+
+1. **Connexion** : un identifiant (mode dev, sans mot de passe).
+2. **Phrase secrète** : elle chiffre vos terminaux et ne quitte jamais le navigateur.
+3. **Première machine** : donnez-lui un nom, puis collez la commande affichée dans un terminal de
+   la machine. Elle ressemble à :
+
+   ```shell
+   sshx platform enroll http://localhost:5180 smt_….<clé> && sshx
+   ```
+
+   La page détecte la machine et ouvre son premier terminal toute seule.
+
+`enroll` enregistre la plateforme et le serveur sshx qu'elle annonce, et installe les hooks Claude
+Code ; ensuite, un simple `sshx` suffit. Pour vérifier une machine à tout moment :
+
+```shell
+sshx platform status    # plateforme, jeton, serveur sshx, sessions, hooks Claude, ce terminal
+```
+
+La commande `sshx` doit être la version CATIE avec la plateforme (branche `platform` du dépôt
+sshx). En développement : `../sshx/target/debug/sshx`, ou `cargo install --path ../sshx/crates/sshx`.
+
+Sans mprocs, à la main :
 
 ```shell
 (cd ../sshx && cargo run --bin sshx-server -- --listen 127.0.0.1 --secret dev --override-origin http://127.0.0.1:8051)
 cargo run -- --sshx-server http://127.0.0.1:8051       # API sur 127.0.0.1:8060
 npm run dev                                            # interface sur http://localhost:5180
-```
-
-Puis, dans l'interface : choisir un nom, créer la phrase de chiffrement, aller dans **Machines**,
-créer un jeton, et sur la machine :
-
-```shell
-sshx platform enroll http://localhost:5180 smt_….<clé>
-sshx claude-hooks install
-sshx --server http://127.0.0.1:8051
 ```
 
 ## Production (réseau Tailscale)
@@ -73,7 +89,9 @@ Servez-la en HTTPS (certificat Tailscale, comme sshx, voir `../sshx/Tailscale.md
 du navigateur (Web Crypto) l'exige hors de `localhost`.
 
 **Machines cloud où sshx tourne déjà en service** : sous l'utilisateur du service, lancer une fois
-`sshx platform enroll <url> <jeton>` puis `sshx claude-hooks install`, et redémarrer le service.
+`sshx platform enroll <url> <jeton>` (la commande sans `&& sshx`), puis redémarrer le service.
+Si les machines joignent le serveur sshx par une autre adresse que la plateforme, indiquez-la avec
+`PLATFORM_SSHX_PUBLIC_URL` : elle leur est annoncée à l'enrôlement.
 Avec `--slug <nom>`, la session garde le même nom d'un redémarrage à l'autre, et vos noms et
 réglages de terminaux restent rattachés.
 
@@ -104,7 +122,18 @@ Les utilisateurs sont créés à la première connexion (identifiant : `preferre
 ## Tests
 
 ```shell
-cargo test        # API de bout en bout (connexion, coffre, jetons, rapports, partage, CSRF)
-npm test          # cryptographie, dont un vecteur partagé avec le client Rust
-npm run check     # typage Svelte/TypeScript
+npm run verify    # tout : tests Rust (sshx et plateforme), chiffrement, typage, full-stack
+npm run e2e       # seulement le scénario full-stack
 ```
+
+Le scénario full-stack (`tests/e2e/`) démarre un vrai sshx-server, la plateforme avec une base
+jetable et de vrais clients sshx, avec un `HOME` temporaire (vos `~/.sshx` et `~/.claude` ne sont
+pas touchés), puis pilote Chromium sans interface : connexion, phrase secrète, commande
+d'enrôlement copiée depuis la page et exécutée, saisie dans le terminal, `sshx platform status`,
+états Claude rejoués par les vrais hooks (`sshx hook claude`), non-lu et notification,
+renommage chiffré (vérifié dans la base), division, fermeture, nouvel appareil mobile, partage,
+contrôles d'accès, arrêt et relance de la machine. Les captures d'écran de chaque étape sont dans
+`test-results/screens/`.
+
+Première fois : `npx playwright install --only-shell chromium`. Variables utiles : `E2E_SKIP_BUILD=1`
+(ne pas recompiler), `E2E_KEEP=1` (garder les journaux et la base), `SSHX_REPO` (dépôt sshx).

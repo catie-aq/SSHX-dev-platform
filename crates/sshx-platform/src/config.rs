@@ -35,6 +35,11 @@ pub struct Config {
     #[clap(long, env = "PLATFORM_SSHX_SERVER", default_value = "http://127.0.0.1:8051")]
     pub sshx_server: String,
 
+    /// sshx server as reached from the machines, announced to them at
+    /// enrollment. Defaults to --sshx-server.
+    #[clap(long, env = "PLATFORM_SSHX_PUBLIC_URL")]
+    pub sshx_public_url: Option<String>,
+
     /// Directory of the compiled web app.
     #[clap(long, env = "PLATFORM_STATIC_DIR", default_value = "build")]
     pub static_dir: PathBuf,
@@ -78,6 +83,14 @@ impl Config {
         } else {
             base.to_string()
         }
+    }
+
+    /// sshx server URL that machines should use.
+    pub fn machine_sshx_server(&self) -> &str {
+        self.sshx_public_url
+            .as_deref()
+            .unwrap_or(&self.sshx_server)
+            .trim_end_matches('/')
     }
 
     /// Whether `username` is listed as an admin.
