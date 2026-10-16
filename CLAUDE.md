@@ -33,6 +33,12 @@ src/                          SvelteKit SPA (Svelte 3, Tailwind 3 — same versi
 tests/crypto.test.mjs         Node tests of crypto.ts, incl. a vector shared with Rust
 tests/e2e/                    Playwright full-stack scenario (real sshx-server, platform, clients)
 scripts/verify.sh             Every check of both repos (npm run verify)
+site/                         Public site of the whole solution (Plati + SSHX + SSHX Platform),
+                              its illustrations and the funders' PDF deliverable. Static, French.
+  DIRECTIVES.md               What the three projects do together, decisions, messaging rules:
+                              read it before writing anything about the solution
+  illustrations/build.mjs     Source of the SVG illustrations (edit this, not the .svg)
+  scripts/export.mjs          PNG exports with fonts embedded (node site/scripts/export.mjs)
 ```
 
 `$sshx` aliases `../sshx/src/lib` (override with `SSHX_SRC`). Packages imported by those files

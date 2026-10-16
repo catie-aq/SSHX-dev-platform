@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agents IA privés pour vos équipes · Plati, SSHX, SSHX Platform</title>
+  <meta name="description" content="Des machines prêtes à coder avec Claude Code, sur vos serveurs et dans votre réseau privé. Plati crée les micro-VMs, SSHX les ouvre dans le navigateur, SSHX Platform réunit tous les terminaux et l'état des agents. En usage au CATIE.">
+  <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      Plati · SSHX · SSHX Platform
+    </a>
+    <nav aria-label="Sections">
+      <a href="#constat">Constat</a>
+      <a href="#solution">Solution</a>
+      <a href="#parcours">Parcours</a>
+      <a href="#securite">Sécurité</a>
+      <a href="#catie">Au CATIE</a>
+      <a href="#suite">Suite</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="pill">En usage au CATIE</span>
+    <h1>Des agents IA privés pour vos équipes, sur vos propres serveurs</h1>
+    <p class="lead">
+      Les administrateurs préparent des machines prêtes à coder&nbsp;: les dépôts du projet, Claude Code,
+      les accès. Chaque personne les retrouve dans son navigateur, sans SSH ni éditeur à installer, et suit
+      tous ses agents d'un coup d'œil. Le code et les échanges restent dans votre réseau privé.
+    </p>
+    <div class="actions">
+      <a class="btn primary" href="#parcours">Voir le parcours</a>
+      <a class="btn ghost" href="#solution">Les trois briques</a>
+    </div>
+    <ul class="stats">
+      <li><b>8</b><span>micro-VMs au CATIE</span></li>
+      <li><b>5</b><span>utilisateurs</span></li>
+      <li><b>3</b><span>logiciels, une chaîne</span></li>
+    </ul>
+    <figure class="hero-figure">
+      <a class="figure" href="illustrations/chaine.svg">
+        <img src="illustrations/chaine.svg" width="1600" height="900"
+          alt="L'administrateur prépare dans Plati les micro-VMs du serveur de l'entreprise, chacune avec Claude Code, SSHX et Tailscale. SSHX relie chaque machine, chiffrée, à SSHX Platform, où les utilisateurs retrouvent leurs terminaux et l'état de leurs agents. Microsoft Entra ID connecte les comptes ; tout est dans le réseau privé Tailscale.">
+      </a>
+      <figcaption>L'administrateur prépare les machines avec Plati&nbsp;; SSHX les relie, chiffrées, à SSHX Platform, où chacun retrouve ses terminaux et ses agents. Tout reste dans le réseau privé.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="constat" class="alt">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Le constat</span>
+      <h2>Un agent IA a besoin d'un vrai poste de travail</h2>
+      <p class="lead">
+        Pour être utile, un agent comme Claude Code a besoin du code, des outils, des clés, et d'une
+        machine où travailler longtemps. Aujourd'hui, chaque équipe bricole sa propre solution.
+      </p>
+    </div>
+    <div class="grid four">
+      <div class="card">
+        <h3>Une machine à préparer pour chacun</h3>
+        <p>Cloner les dépôts, installer les outils, distribuer les clés&nbsp;: des heures par personne et par projet, à refaire à chaque arrivée.</p>
+      </div>
+      <div class="card">
+        <h3>Le code qui part chez un fournisseur</h3>
+        <p>Les postes et les agents hébergés chez un éditeur font sortir le code, les secrets et les conversations de l'organisation.</p>
+      </div>
+      <div class="card">
+        <h3>SSH, un outil d'initiés</h3>
+        <p>Clés, configuration, éditeur distant&nbsp;: un frein pour qui n'est pas développeur, et impraticable depuis un téléphone.</p>
+      </div>
+      <div class="card">
+        <h3>Plusieurs agents, aucune vue d'ensemble</h3>
+        <p>Un agent attend une réponse, un autre a fini depuis une heure&nbsp;: sans vue d'ensemble, le temps se perd entre les fenêtres.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="solution">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">La solution</span>
+      <h2>Trois briques, une seule chaîne</h2>
+      <p class="lead">
+        Trois logiciels développés au CATIE, chacun utile seul, conçus pour fonctionner ensemble.
+        Plati crée les machines, SSHX en ouvre une dans le navigateur, SSHX Platform les réunit toutes.
+      </p>
+    </div>
+    <div class="grid three">
+      <article class="card brick plati">
+        <span class="verb">Créer</span>
+        <h3>Plati</h3>
+        <p>Le micro-cloud de l'équipe&nbsp;: des micro-VMs sur les serveurs de l'organisation, créées à partir de modèles de projet.</p>
+        <ul>
+          <li>Micro-VMs Incus créées, copiées ou transférées en quelques clics</li>
+          <li>Modèles de projet&nbsp;: image, dépôts, agent IA, skills, outils</li>
+          <li>Comptes (mot de passe ou Entra ID), clés SSH, accès Git selon le niveau</li>
+          <li>Secrets chiffrés, injectés dans les machines</li>
+          <li>Espace personnel conservé, ressources plafonnées, arrêt automatique</li>
+        </ul>
+        <div class="who">Pour les administrateurs <a href="https://plati.jeremy-laviole.fr/fr/">Site de Plati</a></div>
+      </article>
+      <article class="card brick sshx">
+        <span class="verb">Ouvrir</span>
+        <h3>SSHX</h3>
+        <p>Une machine dans le navigateur&nbsp;: le terminal partagé par un simple lien, chiffré de bout en bout, outillé pour suivre un agent IA.</p>
+        <ul>
+          <li>Un lien suffit&nbsp;: ni compte, ni clé, ni port ouvert</li>
+          <li>Le serveur relaie les terminaux sans pouvoir les lire</li>
+          <li>Canevas collaboratif&nbsp;: curseurs, chat, partage d'écran</li>
+          <li>Suivi de Claude Code, cartes de fichiers, VS Code intégré</li>
+          <li>Utilisable sur téléphone, mise à jour automatique</li>
+        </ul>
+        <div class="who">Pour une machine et ses invités <a href="https://github.com/catie-aq/sshx">Code source</a></div>
+      </article>
+      <article class="card brick platform">
+        <span class="verb">Réunir</span>
+        <h3>SSHX Platform</h3>
+        <p>Le poste de travail de chacun&nbsp;: tous les terminaux de toutes ses machines, avec l'état de ses agents IA, dans une seule page.</p>
+        <ul>
+          <li>Connexion avec le compte Microsoft de l'organisation (Entra ID)</li>
+          <li>Terminaux groupés par projet, un plein écran à la fois, navigation au clavier</li>
+          <li>États des agents&nbsp;: au travail, question, autorisation, terminé</li>
+          <li>Notifications, compteur «&nbsp;à traiter&nbsp;», version mobile</li>
+          <li>Machines partagées entre collègues, chiffrées pour chacun</li>
+        </ul>
+        <div class="who">Pour chaque utilisateur</div>
+      </article>
+    </div>
+    <div class="foundations">
+      <b>Fondations</b>
+      <span>Tailscale&nbsp;: le réseau privé</span>
+      <span>Microsoft Entra ID&nbsp;: l'identité</span>
+      <span>Incus&nbsp;: les machines</span>
+      <span>Claude Code&nbsp;: l'agent (Codex CLI et OpenCode s'installent aussi)</span>
+    </div>
+  </div>
+</section>
+
+<section id="parcours" class="alt">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Le parcours</span>
+      <h2>De la clé SSH à la démo, en sept étapes</h2>
+      <p class="lead">L'administrateur prépare une fois&nbsp;; ensuite, l'équipe travaille.</p>
+    </div>
+
+    <ol class="steps">
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">1</span>
+            <div class="tags"><span class="tag admin">Administrateur</span><span class="tag">Plati</span></div>
+            <h3>Rassembler les clés</h3>
+          </div>
+          <div>
+            <p>L'administrateur collecte les clés SSH publiques de chaque personne et les enregistre dans Plati. Elles sont installées dans toutes ses machines, y compris celles déjà démarrées.</p>
+            <p>Il attribue aussi à chacun une clé Git qui correspond à son niveau&nbsp;: c'est elle qui décide des dépôts que ses machines peuvent atteindre.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-1-cles.svg"><img src="illustrations/etape-1-cles.svg" width="1600" height="900" loading="lazy"
+          alt="Les clés SSH publiques d'Alice, Bruno et Chloé arrivent dans la page Utilisateurs de Plati, chacune avec son niveau d'accès Git."></a>
+      </li>
+
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">2</span>
+            <div class="tags"><span class="tag admin">Administrateur</span><span class="tag">Plati</span></div>
+            <h3>Décrire chaque projet une fois</h3>
+          </div>
+          <div>
+            <p>Un modèle réunit l'image, les dépôts à cloner, l'agent IA et ses skills, les ressources, et des briques réutilisables&nbsp;: SSHX, Tailscale, Docker, VS Code.</p>
+            <p>Changer d'agent ou de fournisseur d'IA pour toute l'équipe revient à modifier le modèle, puis à reconstruire les machines.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-2-modele.svg"><img src="illustrations/etape-2-modele.svg" width="1600" height="900" loading="lazy"
+          alt="Des briques réutilisables (Claude Code, SSHX, Tailscale, Docker, VS Code) alimentent un modèle de projet site-web, qui produit plusieurs machines identiques."></a>
+      </li>
+
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">3</span>
+            <div class="tags"><span class="tag admin">Administrateur</span><span class="tag">Plati</span></div>
+            <h3>Créer les micro-VMs</h3>
+          </div>
+          <div>
+            <p>Plati crée une micro-VM par personne et par projet sur le serveur de l'organisation, avec Claude Code, SSHX et Tailscale déjà installés. Chacune rejoint le réseau privé.</p>
+            <p>L'espace personnel survit aux reconstructions. Une machine qui fonctionne se copie, ou se transfère à la personne à qui elle est destinée. Les machines s'arrêtent seules après un délai.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-3-micro-vms.svg"><img src="illustrations/etape-3-micro-vms.svg" width="1600" height="900" loading="lazy"
+          alt="Quatre micro-VMs sur le serveur de l'entreprise, chacune avec son propriétaire, Claude Code, SSHX et Tailscale, et un espace personnel conservé ; toutes rejoignent le réseau privé Tailscale."></a>
+      </li>
+
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">4</span>
+            <div class="tags"><span class="tag admin">Administrateur</span><span class="tag">SSHX Platform</span></div>
+            <h3>Relier chaque machine à SSHX Platform</h3>
+          </div>
+          <div>
+            <p>Une seule commande, lancée dans la machine&nbsp;: <code>sshx platform enroll &lt;adresse&gt; &lt;jeton&gt; &amp;&amp; sshx</code>. La machine apparaît dans SSHX Platform et les hooks de Claude Code sont installés&nbsp;: l'état de chaque agent remonte, terminal par terminal.</p>
+            <p>La clé de la machine naît dans le navigateur de l'administrateur. Les serveurs ne reçoivent que des données chiffrées.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-4-enrolement.svg"><img src="illustrations/etape-4-enrolement.svg" width="1600" height="900" loading="lazy"
+          alt="Dans le terminal de la micro-VM, l'administrateur lance sshx platform enroll ; la machine apparaît, en ligne, dans la liste des machines de SSHX Platform, reliée par SSHX et chiffrée de bout en bout."></a>
+      </li>
+
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">5</span>
+            <div class="tags"><span class="tag user">Utilisateur</span><span class="tag admin">Administrateur</span><span class="tag">SSHX Platform</span></div>
+            <h3>Se connecter, recevoir ses machines</h3>
+          </div>
+          <div>
+            <p>L'utilisateur se connecte avec son compte Microsoft, puis choisit une phrase secrète qui ne quitte jamais son navigateur. L'administrateur lui partage ses machines&nbsp;: leur clé est chiffrée pour lui.</p>
+            <p>Pas d'éditeur à installer, pas de clé SSH à manipuler.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-5-connexion.svg"><img src="illustrations/etape-5-connexion.svg" width="1600" height="900" loading="lazy"
+          alt="Chloé se connecte à SSHX Platform avec son compte Microsoft et choisit une phrase secrète ; l'administrateur lui partage la clé de ses machines, chiffrée pour elle ; ses machines apparaissent, en ligne."></a>
+      </li>
+
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">6</span>
+            <div class="tags"><span class="tag user">Utilisateur</span><span class="tag">SSHX Platform</span></div>
+            <h3>Travailler avec l'agent, de partout</h3>
+          </div>
+          <div>
+            <p>Tous les terminaux sont dans une liste, groupés par projet&nbsp;; un terminal s'ouvre en plein écran, et le clavier suffit pour passer de l'un à l'autre.</p>
+            <p>Quand Claude Code pose une question, demande une autorisation ou termine, la ligne change de couleur et le navigateur prévient. Un raccourci mène au prochain terminal à traiter. La même liste est disponible sur téléphone.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-6-agents.svg"><img src="illustrations/etape-6-agents.svg" width="1600" height="900" loading="lazy"
+          alt="SSHX Platform : à gauche les terminaux groupés par projet avec l'état de leur agent (question, au travail, terminé, autorisation) ; à droite le terminal ouvert où Claude pose une question ; la même liste sur un téléphone."></a>
+      </li>
+
+      <li class="step">
+        <div class="step-text">
+          <div>
+            <span class="step-num">7</span>
+            <div class="tags"><span class="tag user">Utilisateur</span><span class="tag">Tailscale</span><span class="tag">SSHX</span></div>
+            <h3>Montrer l'avancée, sans rien publier</h3>
+          </div>
+          <div>
+            <p>L'application en cours tourne dans la machine et s'ouvre à son adresse du réseau privé&nbsp;: les collègues suivent les progrès, Internet ne voit rien.</p>
+            <p>Pour travailler à deux, un lien SSHX partage le terminal en direct, curseurs compris.</p>
+          </div>
+        </div>
+        <a class="figure" href="illustrations/etape-7-demo.svg"><img src="illustrations/etape-7-demo.svg" width="1600" height="900" loading="lazy"
+          alt="Dans le réseau privé, l'application en cours sur la micro-VM s'ouvre à son adresse privée pour les collègues, et un lien SSHX permet de travailler à deux sur le même terminal ; Internet n'y a pas accès."></a>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="poste">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">SSHX Platform</span>
+      <h2>Une alternative à VS Code ou Claude Desktop pour coder à distance</h2>
+      <p class="lead">Les agents travaillent sur les machines de l'organisation. SSHX Platform est la fenêtre qui permet de les piloter, depuis n'importe quel navigateur du réseau privé.</p>
+      <ul class="points">
+        <li><b>Un navigateur suffit</b><span>Ni éditeur, ni extension, ni configuration SSH. Un ordinateur prêté ou un téléphone font l'affaire.</span></li>
+        <li><b>Toutes ses machines dans une liste</b><span>Terminaux groupés par projet, épinglés, renommés, triés&nbsp;: chacun organise les siens, même sur une machine partagée.</span></li>
+        <li><b>Les agents d'un coup d'œil</b><span>Au travail, question, autorisation, terminé&nbsp;: l'état vient des hooks de Claude Code, terminal par terminal.</span></li>
+        <li><b>Pensé pour le clavier</b><span>Des raccourcis qui suivent la disposition du clavier (AZERTY, BÉPO…), ne sont jamais envoyés au shell et se redéfinissent.</span></li>
+        <li><b>VS Code quand il le faut</b><span>«&nbsp;Ouvrir dans VS Code&nbsp;» ouvre le dossier du terminal dans un éditeur complet, dans le navigateur.</span></li>
+      </ul>
+    </div>
+    <div class="needs">
+      <h3>Pour coder sur une machine distante</h3>
+      <div class="label">Il faut</div>
+      <ul class="yes">
+        <li>Un navigateur récent</li>
+        <li>Un compte Microsoft de l'organisation</li>
+        <li>Tailscale sur l'appareil, pour rejoindre le réseau privé</li>
+      </ul>
+      <div class="label">Il ne faut plus</div>
+      <ul class="no">
+        <li>Installer un éditeur ou des extensions</li>
+        <li>Configurer SSH, gérer des clés</li>
+        <li>Copier le code sur son poste</li>
+        <li>Garder une fenêtre ouverte par machine</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="securite" class="alt">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Sécurité</span>
+      <h2>La sécurité en couches, limites comprises</h2>
+      <p class="lead">Chaque couche réduit ce que la suivante doit protéger. Et ce qui reste visible est dit clairement.</p>
+    </div>
+    <figure>
+      <a class="figure" href="illustrations/securite.svg"><img src="illustrations/securite.svg" width="1600" height="900" loading="lazy"
+        alt="Couches imbriquées : votre matériel (Incus), le réseau privé Tailscale, l'identité Microsoft Entra ID, une micro-VM par personne et par projet, des droits au plus juste, et au centre les terminaux chiffrés de bout en bout. À droite : ce que voient les serveurs et ce que décide l'administrateur."></a>
+    </figure>
+    <div class="grid three spaced">
+      <div class="card"><h3>Sur votre matériel</h3><p>Les micro-VMs tournent sous Incus, sur les serveurs de l'organisation. Aucune machine chez un fournisseur de cloud.</p></div>
+      <div class="card"><h3>Dans votre réseau privé</h3><p>Plati, SSHX Platform, les machines et les démos ne sont joignables que par Tailscale. Rien n'est exposé sur Internet.</p></div>
+      <div class="card"><h3>Avec vos comptes</h3><p>Connexion par Microsoft Entra ID. Les administrateurs décident qui a un compte, et qui administre.</p></div>
+      <div class="card"><h3>Une machine par personne et par projet</h3><p>Un agent n'atteint que ce que sa machine atteint&nbsp;: ses dépôts, ses secrets, rien d'autre.</p></div>
+      <div class="card"><h3>Des droits au plus juste</h3><p>Accès Git selon le niveau de chacun, secrets chiffrés (AES-256-GCM) injectés dans les machines, ressources plafonnées.</p></div>
+      <div class="card"><h3>Chiffrement de bout en bout</h3><p>Contenu des terminaux, dossiers, branches et questions des agents sont chiffrés dans la machine et déchiffrés dans le navigateur. Les serveurs n'en voient rien.</p></div>
+    </div>
+    <div class="honest">
+      <h3>Ce qu'il faut savoir</h3>
+      <ul>
+        <li>L'administrateur qui relie une machine à SSHX Platform en détient la clé&nbsp;: il peut ouvrir ses terminaux. C'est le choix d'un service géré.</li>
+        <li>Les serveurs voient les noms des machines et des sessions, l'état des agents et les horodatages&nbsp;: de quoi afficher la liste, pas le travail.</li>
+        <li>«&nbsp;Ouvrir dans VS Code&nbsp;» passe par le relais SSHX sans chiffrement de bout en bout&nbsp;; le trafic reste chiffré par Tailscale.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="catie">
+  <div class="wrap usage">
+    <div class="big"><b>8</b><span>micro-VMs</span></div>
+    <div class="big"><b>5</b><span>utilisateurs</span></div>
+    <div>
+      <span class="eyebrow">En usage</span>
+      <h2>Déjà au travail au CATIE</h2>
+      <p class="lead">La solution est en service au CATIE&nbsp;: des micro-VMs créées et administrées avec Plati, ouvertes par SSHX, réunies pour chacun dans SSHX Platform.</p>
+      <p>Les trois logiciels sont eux-mêmes développés en binôme avec Claude Code.</p>
+    </div>
+  </div>
+</section>
+
+<section id="suite" class="alt">
+  <div class="wrap roadmap">
+    <div class="section-head">
+      <span class="eyebrow">État et suite</span>
+      <h2>Ce qui fonctionne, ce qui vient</h2>
+    </div>
+    <div class="grid three">
+      <div class="card">
+        <h3>Disponible</h3>
+        <ul>
+          <li><b>Plati</b>&nbsp;: micro-VMs et modèles, comptes et Entra ID, clés SSH, accès Git par niveau, secrets, copie et transfert, arrêt automatique, API et skills pour piloter Plati par un agent.</li>
+          <li><b>SSHX</b>&nbsp;: terminal chiffré partagé par lien, canevas collaboratif, suivi de Claude Code, VS Code intégré, partage d'écran, mobile, mise à jour automatique.</li>
+          <li><b>SSHX Platform</b>&nbsp;: liste multi-machines, états des agents, notifications, partage chiffré, raccourcis clavier, mobile, ouverture dans VS Code, administration.</li>
+        </ul>
+      </div>
+      <div class="card next">
+        <h3>Pistes de travail</h3>
+        <ul>
+          <li>Notifications sur téléphone, même verrouillé (Web Push)</li>
+          <li>États des agents pour Codex CLI, Gemini CLI et OpenCode</li>
+          <li>VS Code chiffré de bout en bout, par un tunnel SSHX</li>
+          <li>Machines reliées à SSHX Platform par Plati, dès leur création</li>
+          <li>Plusieurs organisations sur une même installation</li>
+        </ul>
+      </div>
+      <div class="card next">
+        <h3>Pour qui</h3>
+        <ul>
+          <li><b>Contributeurs</b>, développeurs ou non&nbsp;: une machine prête, un agent, des skills.</li>
+          <li><b>Développeurs</b>&nbsp;: des agents qui travaillent en tâche de fond, suivis d'un coup d'œil.</li>
+          <li><b>Administrateurs</b>&nbsp;: des machines créées, copiées, confiées en quelques clics.</li>
+          <li><b>Responsables</b>&nbsp;: les données restent dans l'organisation&nbsp;; le fournisseur d'IA se change dans un modèle.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>Plati · SSHX · SSHX Platform</a>
+    <div>Logiciels développés et utilisés au <a href="https://www.catie.fr">CATIE</a>.</div>
+    <div class="links">
+      <a href="https://plati.jeremy-laviole.fr/fr/">Plati</a>
+      <a href="https://github.com/catie-aq/sshx">SSHX (fork CATIE)</a>
+      <a href="https://www.catie.fr">CATIE</a>
+    </div>
+    <small>Personnes et données des illustrations fictives. Microsoft Entra ID, Tailscale, Incus, Claude Code, VS Code et Docker sont des marques de leurs propriétaires respectifs.</small>
+  </div>
+</footer>
+
+</body>
+</html>
