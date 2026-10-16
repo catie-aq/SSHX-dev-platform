@@ -25,7 +25,7 @@ src/                          SvelteKit SPA (Svelte 3, Tailwind 3 — same versi
   lib/connection.ts           sshx WebSocket protocol client (pooled per session)
   lib/notify.ts               Unread/attention tracking, browser notifications
   lib/settings.ts             Per-device display preferences (terminal font size, sidebar width)
-  lib/shortcuts.ts            Keyboard shortcuts (Alt/⌥ + physical key), help list
+  lib/shortcuts.ts            Keyboard shortcuts: layout-aware matching, defaults, user overrides
   lib/ui/                     Sidebar, TerminalRow, TerminalPane, XTermView, VaultGate,
                               AddMachine (enroll wizard), Menu, Modal, Icon…
   routes/                     / (workspace + first-run wizard), /login, /machines, /admin
@@ -54,11 +54,13 @@ scripts/verify.sh             Every check of both repos (npm run verify)
   device (localStorage).
 - UI text sizes: 15px for primary names, 12px minimum (no `text-[11px]` or smaller for content).
 - One terminal on screen at a time (split view was removed on purpose); navigation is by keyboard.
-  Shortcuts are Alt/⌥ + `event.code` (layout-independent), handled in the window capture phase
-  of `routes/+page.svelte` and refused in `XTermView`'s key handler, so the shell never sees them.
-  Only use keys at the same place on AZERTY/QWERTY/QWERTZ (not A, Q, W, Z, Y, M) and avoid
-  readline Meta bindings (B, F, D, U, C, T, Y, `.`). Keep `SHORTCUT_HELP` and the README table in
-  sync.
+  Shortcuts (`lib/shortcuts.ts`) are handled in the window capture phase of `routes/+page.svelte`
+  and refused in `XTermView`'s key handler, so the shell never sees them. Letters follow the user's
+  layout (BÉPO, AZERTY…): `event.key`, or the Keyboard Map API / learned keys on macOS where ⌥
+  changes `key`; digits and arrows use `event.code`. Default modifier: ⌃⌥ on macOS (⌥ alone types
+  characters such as "}" in BÉPO), Alt elsewhere (AltGr types them). Users can redefine each one.
+  Avoid readline Meta bindings (B, F, D, U, C, T, Y, `.`) in defaults. Unit tests in
+  `tests/shortcuts.test.mjs` (BÉPO/AZERTY/Cyrillic, macOS/Linux); keep the README table in sync.
 - Elements driven by the e2e tests carry `data-testid` (and `data-state`, `data-online`,
   `data-unread` on rows); `window.__sshxPlatform.terminalText(session, sid)` exposes decrypted
   output (already in page memory) to the tests. Update `tests/e2e/platform.spec.ts` with UI changes.

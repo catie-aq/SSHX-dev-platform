@@ -12,7 +12,7 @@ step "sshx : cargo test ($SSHX_REPO)"
 (cd "$SSHX_REPO" && cargo test --quiet -p sshx-core -p sshx -p sshx-server)
 step "plateforme : cargo test"
 cargo test --quiet
-step "plateforme : npm test (chiffrement, vecteur commun avec sshx)"
+step "plateforme : npm test (chiffrement, raccourcis clavier)"
 npm test --silent
 step "plateforme : svelte-check"
 npm run --silent check

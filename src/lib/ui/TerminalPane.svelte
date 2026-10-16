@@ -10,7 +10,7 @@
   import { acquire, release, type ConnectionStatus, type SessionConnection } from "$lib/connection";
   import { lastSeen, needsAttention, requestNotificationPermission } from "$lib/notify";
   import { termFontSize, TERM_FONT_MAX, TERM_FONT_MIN } from "$lib/settings";
-  import { ALT } from "$lib/shortcuts";
+  import { shortcutLabels } from "$lib/shortcuts";
   import { ago, now } from "$lib/time";
   import { toast, toastError } from "$lib/toast";
   import { items, renameTerminal, sessionLink, sessionSecret, setBell, setPinned, type TermItem } from "$lib/workspace";
@@ -175,7 +175,7 @@
     if (!item) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const list: MenuItem[] = [
-      { label: "Renommer", icon: "edit", hint: `${ALT}R`, run: startRename },
+      { label: "Renommer", icon: "edit", hint: $shortcutLabels.rename, run: startRename },
       { label: item.bell ? "Couper les notifications" : "Me notifier", icon: "bell", run: toggleBell },
       { label: item.pinned ? "Désépingler" : "Épingler en haut", icon: "pin", run: () => item && setPinned(item, !item.pinned).catch(toastError) },
       "separator",
@@ -196,7 +196,7 @@
         },
         { label: "Copier le lien sshx", icon: "share", run: share },
         "separator",
-        { label: "Fermer le terminal", icon: "x", danger: true, hint: `${ALT}X`, run: askClose },
+        { label: "Fermer le terminal", icon: "x", danger: true, hint: $shortcutLabels.close, run: askClose },
       );
     }
     menu = { x: rect.right, y: rect.bottom + 6, items: list };
@@ -268,7 +268,7 @@
       {/if}
       {#if !$canWrite}<span class="rounded-md border border-zinc-700 px-1.5 py-0.5 text-xs text-zinc-400" title="Session en lecture seule">Lecture seule</span>{/if}
       {#if !mobile}
-        <button class="icon-btn" title="Nouveau terminal sur {item.machine.name} ({ALT}N)" aria-label="Nouveau terminal" on:click={() => item && dispatch("create", item)}>
+        <button class="icon-btn" title="Nouveau terminal sur {item.machine.name} ({$shortcutLabels.new})" aria-label="Nouveau terminal" on:click={() => item && dispatch("create", item)}>
           <Icon name="plus" size={18} />
         </button>
       {/if}

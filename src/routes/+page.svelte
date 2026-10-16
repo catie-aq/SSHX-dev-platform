@@ -7,7 +7,7 @@
   import { acquire, closeAll, release } from "$lib/connection";
   import { attention, markSeen, selectRequest, visibleKeys } from "$lib/notify";
   import { sidebarWidth } from "$lib/settings";
-  import { matchShortcut, type Shortcut } from "$lib/shortcuts";
+  import { learnKey, matchShortcut, recording, refreshLayout, type Shortcut } from "$lib/shortcuts";
   import { ago, now } from "$lib/time";
   import { toast, toastError } from "$lib/toast";
   import AddMachine from "$lib/ui/AddMachine.svelte";
@@ -207,7 +207,8 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
-    if (onboarding || mobile || $vaultStatus !== "unlocked") return;
+    learnKey(event);
+    if (onboarding || mobile || $vaultStatus !== "unlocked" || $recording) return;
     const shortcut = matchShortcut(event);
     if (shortcut) {
       // Capture phase: the terminal never receives the key.
@@ -261,6 +262,7 @@
       goto("/", { replaceState: true, noScroll: true, keepFocus: true });
       setTimeout(() => (pendingOpen = null), 15_000);
     }
+    refreshLayout();
     media = window.matchMedia("(max-width: 767px)");
     onMedia();
     media.addEventListener("change", onMedia);
@@ -312,7 +314,7 @@
   $: pending = [...$attention.questions, ...$attention.done];
 </script>
 
-<svelte:window on:keydown|capture={onKeydown} />
+<svelte:window on:keydown|capture={onKeydown} on:focus={refreshLayout} />
 
 <VaultGate>
   {#if !$loaded}
@@ -476,12 +478,8 @@
 {/if}
 
 {#if helpOpen}
-  <Modal title="Raccourcis clavier" width={560} on:close={() => (helpOpen = false)}>
-    <ShortcutsHelp />
-    <p class="mt-5 text-sm text-zinc-500">
-      Ils fonctionnent aussi quand le terminal a le clavier : ces touches ne sont jamais envoyées au shell.
-      Double-cliquez sur un nom pour le renommer, glissez une ligne pour réordonner la liste.
-    </p>
+  <Modal title="Raccourcis clavier" width={640} on:close={() => !$recording && (helpOpen = false)}>
+    <ShortcutsHelp editable />
   </Modal>
 {/if}
 

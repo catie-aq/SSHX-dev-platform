@@ -16,22 +16,25 @@ Elle s'appuie sur [sshx (fork CATIE)](../sshx) sans le remplacer :
   machine à l'autre) ou par machine. Tri par glisser-déposer, épinglage, renommage (double-clic),
   filtre, sessions hors ligne affichées en grisé.
 - **Un terminal plein écran à la fois**, avec l'écho prédictif et les thèmes de sshx.
-- **Raccourcis clavier** (⌥ sur Mac, Alt ailleurs), actifs même quand le terminal a le clavier et
-  jamais envoyés au shell :
+- **Raccourcis clavier**, actifs même quand le terminal a le clavier et jamais envoyés au shell.
+  Le modificateur est ⌃⌥ sur Mac (⌥ seul sert à taper « } », « ~ », « [ »… en BÉPO et en AZERTY) et
+  Alt sous Linux et Windows (où AltGr tape ces caractères) :
 
-  | Touches | Action |
+  | Touches (Mac / Linux) | Action |
   |---|---|
-  | ⌥K | Aller à un terminal : quelques lettres du nom, du projet, de la machine ou de la branche, puis Entrée |
-  | ⌥J | Terminal suivant à traiter (question, autorisation, travail terminé non lu) |
-  | ⌥L | Revenir au terminal précédent (bascule entre les deux derniers) |
-  | ⌥↑ / ⌥↓ | Terminal au-dessus / en dessous dans la liste |
-  | ⌥1 … ⌥9 | n-ième terminal de la liste |
-  | ⌥N | Nouveau terminal sur la même machine, dans le même dossier |
-  | ⌥R | Renommer le terminal |
-  | ⌥X | Fermer le terminal (Entrée confirme, Échap annule) |
+  | ⌃⌥K / Alt+K (et ⌘K sur Mac) | Aller à un terminal : quelques lettres du nom, du projet, de la machine ou de la branche, puis Entrée |
+  | ⌃⌥J / Alt+J | Terminal suivant à traiter (question, autorisation, travail terminé non lu) |
+  | ⌃⌥L / Alt+L | Revenir au terminal précédent (bascule entre les deux derniers) |
+  | ⌃⌥↑ ⌃⌥↓ / Alt+↑ Alt+↓ | Terminal au-dessus / en dessous dans la liste |
+  | ⌃⌥1…9 / Alt+1…9 | n-ième terminal de la liste |
+  | ⌃⌥N / Alt+N | Nouveau terminal sur la même machine, dans le même dossier |
+  | ⌃⌥R / Alt+R | Renommer le terminal |
+  | ⌃⌥X / Alt+X | Fermer le terminal (Entrée confirme, Échap annule) |
   | ? | Aide des raccourcis (hors terminal) |
 
-  Les touches sont repérées par leur position : elles sont les mêmes en AZERTY et en QWERTY.
+  Les lettres suivent la disposition du clavier (BÉPO, AZERTY, QWERTZ…) : K est la touche marquée K.
+  Chaque raccourci se redéfinit depuis l'aide (?, puis « Modifier ») ; le réglage est propre à
+  l'appareil.
 - **États des agents** par terminal, remontés par les hooks Claude Code : badges, bandeau avec la
   question ou la réponse finale, compteur « à traiter » dans le titre de l'onglet. Un badge vert
   signale un travail terminé que vous n'avez pas encore regardé.

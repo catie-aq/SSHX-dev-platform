@@ -7,7 +7,7 @@
 
   import type { Session } from "$lib/api";
   import { lastSeen, needsAttention } from "$lib/notify";
-  import { ALT } from "$lib/shortcuts";
+  import { shortcutLabels } from "$lib/shortcuts";
   import { ago, now } from "$lib/time";
   import { items, machines, sessions, type TermItem } from "$lib/workspace";
   import Icon from "./Icon.svelte";
@@ -172,8 +172,8 @@
     <div class="flex flex-wrap gap-x-4 gap-y-1 border-t border-zinc-800 px-4 py-2 text-xs text-zinc-500">
       <span><span class="kbd">↑</span> <span class="kbd">↓</span> choisir</span>
       <span><span class="kbd">Entrée</span> ouvrir</span>
-      <span><span class="kbd">{ALT}J</span> suivant à traiter</span>
-      <span><span class="kbd">{ALT}L</span> précédent</span>
+      <span><span class="kbd">{$shortcutLabels.attention}</span> suivant à traiter</span>
+      <span><span class="kbd">{$shortcutLabels.last}</span> précédent</span>
     </div>
   </div>
 </div>

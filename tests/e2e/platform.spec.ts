@@ -10,6 +10,10 @@ import { expect, test, type Browser, type BrowserContextOptions, type Locator, t
 
 import { loadStack, Machine, PATHS, stopAllMachines, type Stack } from "./stack";
 
+/** Default shortcut modifier: ⌃⌥ on macOS (⌥ alone types characters), Alt elsewhere. */
+const MAC = process.platform === "darwin";
+const MOD = MAC ? "Control+Alt+" : "Alt+";
+
 /** Test passphrase; never a real one. */
 const PASSPHRASE = "phrase secrète de test e2e";
 const SCREENS = path.join(PATHS.root, "test-results/screens");
@@ -35,8 +39,31 @@ test.afterAll(async () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function openUser(browser: Browser, options: BrowserContextOptions = {}): Promise<Page> {
+/** Physical key → character, as reported by Chrome's Keyboard Map API. */
+type Layout = Record<string, string>;
+
+/** US QWERTY, matching the key events Playwright synthesizes. */
+const QWERTY: Layout = Object.fromEntries([
+  ..."abcdefghijklmnopqrstuvwxyz".split("").map((c) => [`Key${c.toUpperCase()}`, c]),
+  ..."1234567890".split("").map((d) => [`Digit${d}`, d]),
+]);
+
+/** BÉPO, the French ergonomic layout. */
+const BEPO: Layout = {
+  ...QWERTY,
+  KeyQ: "b", KeyW: "é", KeyE: "p", KeyR: "o", KeyT: "è", KeyY: "^", KeyU: "v", KeyI: "d", KeyO: "l", KeyP: "j",
+  KeyA: "a", KeyS: "u", KeyD: "i", KeyF: "e", KeyG: ",", KeyH: "c", KeyJ: "t", KeyK: "s", KeyL: "r", Semicolon: "n",
+  KeyZ: "à", KeyX: "y", KeyC: "x", KeyV: ".", KeyB: "k", KeyN: "'", KeyM: "q", Comma: "g", Period: "h", Slash: "f",
+};
+
+async function openUser(browser: Browser, options: BrowserContextOptions = {}, layout: Layout = QWERTY): Promise<Page> {
   const context = await browser.newContext({ baseURL: stack.baseUrl, ...options });
+  // The page sees this layout, whatever the layout of the machine running the tests.
+  await context.addInitScript((map) => {
+    Object.defineProperty(navigator, "keyboard", {
+      value: { getLayoutMap: async () => new Map(Object.entries(map)) },
+    });
+  }, layout);
   // Record browser notifications instead of showing them.
   await context.addInitScript(() => {
     const w = window as any;
@@ -273,19 +300,19 @@ test("7. raccourcis clavier, sans rien envoyer au shell", async () => {
   await pane(alice, keys.first!).locator(".xterm").click();
 
   // Up/down in the list, n-th terminal, back to the previous one.
-  await alice.keyboard.press("Alt+ArrowDown");
+  await alice.keyboard.press(MOD + "ArrowDown");
   await expect.poll(current).toBe(keys.second);
-  await alice.keyboard.press("Alt+ArrowUp");
+  await alice.keyboard.press(MOD + "ArrowUp");
   await expect.poll(current).toBe(keys.first);
-  await alice.keyboard.press("Alt+Digit2");
+  await alice.keyboard.press(MOD + "Digit2");
   await expect.poll(current).toBe(keys.second);
-  await alice.keyboard.press("Alt+KeyL");
+  await alice.keyboard.press(MOD + "KeyL");
   await expect.poll(current).toBe(keys.first);
-  await alice.keyboard.press("Alt+KeyL");
+  await alice.keyboard.press(MOD + "KeyL");
   await expect.poll(current).toBe(keys.second);
 
   // Quick switch by name.
-  await alice.keyboard.press("Alt+KeyK");
+  await alice.keyboard.press(MOD + "KeyK");
   await expect(alice.getByTestId("palette")).toBeVisible();
   await alice.keyboard.type("claude");
   await expect(alice.getByTestId("palette-entry").first()).toContainText("claude - traduction");
@@ -299,37 +326,89 @@ test("7. raccourcis clavier, sans rien envoyer au shell", async () => {
   await expect.poll(() => terminalText(alice, keys.first!)).toContain("propre-5");
 
   // New terminal in the same place, rename it, close it (Escape cancels).
-  await alice.keyboard.press("Alt+KeyN");
+  await alice.keyboard.press(MOD + "KeyN");
   await expect(alice.getByTestId("terminal-row")).toHaveCount(3);
   await expect.poll(current).not.toBe(keys.first);
   const third = await current();
-  await alice.keyboard.press("Alt+KeyR");
+  await alice.keyboard.press(MOD + "KeyR");
   const title = pane(alice, third).getByLabel("Nom du terminal");
   await expect(title).toBeFocused();
   await title.fill("serveur");
   await title.press("Enter");
   await expect(row(alice, third).getByTestId("terminal-name")).toHaveText("serveur");
   await pane(alice, third).locator(".xterm").click();
-  await alice.keyboard.press("Alt+KeyX");
+  await alice.keyboard.press(MOD + "KeyX");
   await expect(alice.getByTestId("confirm-close")).toBeFocused();
   await alice.keyboard.press("Escape");
   await expect(alice.getByTestId("confirm-close")).toHaveCount(0);
-  await alice.keyboard.press("Alt+KeyX");
+  await alice.keyboard.press(MOD + "KeyX");
   await alice.keyboard.press("Enter");
   await expect(row(alice, third)).toHaveCount(0);
   await expect.poll(current).toBe(keys.first);
 
   // Nothing to handle: a short notice.
-  await alice.keyboard.press("Alt+KeyJ");
+  await alice.keyboard.press(MOD + "KeyJ");
   await expect(alice.getByTestId("toast")).toContainText("Rien à traiter.");
 
-  // "?" outside the terminal shows the reference.
+  // "?" outside the terminal shows the reference, where shortcuts can be redefined.
   await alice.getByTestId("sidebar").locator("nav").click({ position: { x: 10, y: 400 } });
   await alice.keyboard.press("?");
-  await expect(alice.getByRole("dialog", { name: "Raccourcis clavier" })).toBeVisible();
+  const help = alice.getByRole("dialog", { name: "Raccourcis clavier" });
+  await expect(help).toBeVisible();
+  await expect(help.getByTestId("shortcut-palette")).toHaveText(MAC ? "⌃⌥K" : "Alt+K");
   await shot(alice, "09-raccourcis");
+  await help.getByRole("button", { name: "Modifier" }).first().click();
+  await alice.keyboard.press("KeyG");
+  await expect(help.getByTestId("shortcut-error")).toContainText("une touche seule sert à écrire");
+  await alice.keyboard.press(MOD + "KeyG");
+  await expect(help.getByTestId("shortcut-palette")).toHaveText(MAC ? "⌃⌥G" : "Alt+G");
   await alice.keyboard.press("Escape");
-  await expect(alice.getByRole("dialog", { name: "Raccourcis clavier" })).toHaveCount(0);
+  await expect(help).toHaveCount(0);
+  await alice.keyboard.press(MOD + "KeyG");
+  await expect(alice.getByTestId("palette")).toBeVisible();
+  await alice.keyboard.press("Escape");
+  await alice.keyboard.press(MOD + "KeyK");
+  await expect(alice.getByTestId("palette")).toHaveCount(0);
+  // Back to the defaults.
+  await alice.getByTestId("sidebar").locator("nav").click({ position: { x: 10, y: 400 } });
+  await alice.keyboard.press("?");
+  await help.getByRole("button", { name: "Rétablir les raccourcis par défaut" }).click();
+  await expect(help.getByTestId("shortcut-palette")).toHaveText(MAC ? "⌃⌥K" : "Alt+K");
+  await alice.keyboard.press("Escape");
+});
+
+test("7b. raccourcis en BÉPO : la lettre imprimée sur la touche", async ({ browser }) => {
+  const page = await openUser(browser, {}, BEPO);
+  await login(page, "alice");
+  await page.getByLabel("Phrase secrète").fill(PASSPHRASE);
+  await page.getByRole("button", { name: "Déverrouiller" }).click();
+  await row(page, keys.first!).click();
+  await expect(pane(page, keys.first!)).toBeVisible();
+  await pane(page, keys.first!).locator(".xterm").click();
+
+  // Real key events, as a BÉPO keyboard sends them.
+  const cdp = await page.context().newCDPSession(page);
+  const modifiers = MAC ? 1 | 2 : 1; // Alt (+ Ctrl on macOS)
+  async function chord(code: string, key: string) {
+    for (const type of ["rawKeyDown", "keyUp"] as const) {
+      await cdp.send("Input.dispatchKeyEvent", { type, modifiers, code, key, windowsVirtualKeyCode: key.toUpperCase().charCodeAt(0) });
+    }
+  }
+  // The key labelled K in BÉPO sits where QWERTY has B.
+  await chord("KeyB", "k");
+  await expect(page.getByTestId("palette")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("palette")).toHaveCount(0);
+  // QWERTY's K position is S in BÉPO: no shortcut.
+  await pane(page, keys.first!).locator(".xterm").click();
+  await chord("KeyK", "s");
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId("palette")).toHaveCount(0);
+  // The help shows the same labels as on any keyboard.
+  await page.getByTestId("sidebar").locator("nav").click({ position: { x: 10, y: 400 } });
+  await page.keyboard.press("?");
+  await expect(page.getByTestId("shortcut-palette")).toHaveText(MAC ? "⌃⌥K" : "Alt+K");
+  await page.context().close();
 });
 
 test("8. fermeture d'un terminal depuis son menu", async () => {

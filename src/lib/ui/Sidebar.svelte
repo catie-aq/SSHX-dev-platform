@@ -6,7 +6,7 @@
   import type { Session } from "$lib/api";
   import { me } from "$lib/auth";
   import { attention, lastSeen, needsAttention, requestNotificationPermission } from "$lib/notify";
-  import { ALT } from "$lib/shortcuts";
+  import { shortcutLabels } from "$lib/shortcuts";
   import { toastError } from "$lib/toast";
   import {
     eventsConnected,
@@ -279,7 +279,7 @@
       title={$eventsConnected ? "Temps réel connecté" : "Reconnexion…"}
     />
     <div class="flex-1" />
-    <button class="btn-primary px-2.5 py-1.5" on:click={newTerminal} title="Nouveau terminal ({ALT}N)" data-testid="new-terminal">
+    <button class="btn-primary px-2.5 py-1.5" on:click={newTerminal} title="Nouveau terminal ({$shortcutLabels.new})" data-testid="new-terminal">
       <Icon name="plus" size={16} stroke={2.4} />
       Terminal
     </button>
@@ -294,7 +294,7 @@
     >
       <Icon name="search" size={15} />
       <span class="min-w-0 flex-1 truncate">Aller à un terminal…</span>
-      {#if !touch}<span class="kbd">{ALT}K</span>{/if}
+      {#if !touch}<span class="kbd">{$shortcutLabels.palette}</span>{/if}
     </button>
     <button class="icon-btn h-9 w-9" title="Affichage" aria-label="Options d'affichage" on:click={viewMenu}>
       <Icon name="settings" size={17} />
