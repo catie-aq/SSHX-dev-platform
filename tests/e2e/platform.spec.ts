@@ -6,6 +6,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import os from "node:os";
+
 import { expect, test, type Browser, type BrowserContextOptions, type Locator, type Page } from "@playwright/test";
 
 import { loadStack, Machine, PATHS, stopAllMachines, type Stack } from "./stack";
@@ -187,6 +189,53 @@ test("3. le terminal transmet saisie et sortie", async () => {
   await typeIn(alice, keys.first!, "echo e2e-$((6*7))");
   await expect.poll(() => terminalText(alice, keys.first!)).toContain("e2e-42");
   await shot(alice, "05-terminal");
+});
+
+test("3b. « Ouvrir dans VS Code » vise le dossier du terminal, avec le jeton de l'IDE", async () => {
+  // Machines registered with the platform offer VS Code without --ide.
+  const button = pane(alice, keys.first!).getByTestId("open-ide");
+  await expect(button).toBeVisible();
+  // Capture the URL: loading it would download OpenVSCode Server on the machine.
+  await alice.evaluate(() => {
+    const w = window as any;
+    w.__opened = [];
+    w.__realOpen = w.open;
+    w.open = (url: string) => (w.__opened.push(url), null);
+  });
+  await button.click();
+  const opened: string[] = await alice.evaluate(() => {
+    const w = window as any;
+    w.open = w.__realOpen;
+    return w.__opened;
+  });
+  expect(opened).toHaveLength(1);
+  const url = new URL(opened[0]);
+  expect(url.origin).toBe(new URL(stack.sshxUrl).origin);
+  expect(url.pathname).toBe(`/ide/s/${keys.first!.split("/")[0]}/1/`);
+  expect(url.searchParams.get("tkn")).toMatch(/^[0-9a-f]{32}$/);
+  expect(url.searchParams.get("folder")).toMatch(/\/work\/traduction$/);
+});
+
+test("3c. VS Code s'ouvre pour de vrai dans le dossier du terminal (E2E_IDE=1)", async () => {
+  test.skip(!process.env.E2E_IDE, "télécharge le serveur VS Code : E2E_IDE=1 pour l'activer");
+  test.setTimeout(600_000);
+  // The VS Code CLI (macOS) downloads its server (~600 MB) on first use: share
+  // the user's copy instead of downloading it into each test HOME.
+  const shared = path.join(os.homedir(), ".sshx", "vscode-web");
+  fs.mkdirSync(shared, { recursive: true });
+  fs.symlinkSync(shared, path.join(laptop.home, ".sshx", "vscode-web"));
+  fs.writeFileSync(path.join(laptop.project, "LISEZMOI.md"), "e2e\n");
+
+  const [ide] = await Promise.all([
+    alice.context().waitForEvent("page"),
+    pane(alice, keys.first!).getByTestId("open-ide").click(),
+  ]);
+  // Waiting pages (sshx's or the VS Code CLI's) reload until the workbench loads.
+  await expect(ide.locator(".monaco-workbench")).toBeVisible({ timeout: 540_000 });
+  await expect(ide).toHaveTitle(/traduction/, { timeout: 60_000 });
+  await expect(ide.getByRole("treeitem", { name: /LISEZMOI\.md/ })).toBeVisible({ timeout: 60_000 });
+  await shot(ide, "05c-vscode");
+  await ide.close();
 });
 
 test("4. `sshx platform status` vérifie toute la chaîne, depuis la machine et depuis un terminal", async () => {

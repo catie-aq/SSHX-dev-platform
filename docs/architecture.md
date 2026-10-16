@@ -92,6 +92,21 @@ jeton dérivé de la clé de session (`ide::connection_token`, `ideToken.ts`), p
 en argument de processus. Le trafic de l'IDE traverse toujours sshx-server en clair : il n'est pas
 chiffré de bout en bout comme les terminaux.
 
+### VS Code depuis la plateforme
+
+Le bouton « Ouvrir dans VS Code » d'un terminal ouvre, dans un nouvel onglet,
+`<sshx-server>/ide/s/<session>/1/?tkn=<jeton>&folder=<dossier du terminal>`. Le navigateur s'adresse
+directement à sshx-server, sans passer par la plateforme. Une session inscrite sur la plateforme
+annonce l'IDE même sans `--ide` : OpenVSCode Server est téléchargé dans `~/.sshx/openvscode-server`
+à la première ouverture, derrière une page d'attente qui se recharge seule (`sshx --no-ide` pour
+refuser). Une seule instance par session ; chaque dossier ouvre sa propre fenêtre. Sur macOS, où
+Gitpod ne publie pas OpenVSCode, sshx utilise `code serve-web` (CLI officiel de VS Code, licence
+Microsoft), qui télécharge son serveur (~600 Mo) dans `~/.sshx/vscode-web`.
+
+Exception assumée à la règle « jamais de chemin en clair » : ouvrir VS Code révèle à sshx-server le
+dossier (dans l'URL) et le contenu des fichiers consultés, comme tout le trafic de l'IDE. La
+plateforme, elle, ne voit rien de plus.
+
 ## États des agents
 
 `sshx claude-hooks install` ajoute à `~/.claude/settings.json` des hooks synchrones qui exécutent
@@ -170,9 +185,8 @@ la base ne contient en clair ni noms de terminaux, ni chemins, ni questions d'ag
 
 - **Entra ID** : le flux OIDC est implémenté et compilé, mais pas encore testé contre un vrai
   locataire.
-- **IDE à la demande** : la machine doit avoir été lancée avec `sshx --ide`. Le lancement depuis la
-  plateforme demandera une commande plateforme → machine (la réponse au rapport d'état est prévue
-  pour la porter).
+- **IDE en clair pour sshx-server** : le trafic de VS Code n'est pas chiffré de bout en bout (voir
+  plus haut). Un tunnel chiffré avec la clé de session le permettrait.
 - **Non-lu par appareil** : un travail terminé vu sur l'ordinateur reste « non lu » sur le
   téléphone.
 - **Notifications** : uniquement quand un onglet de la plateforme est ouvert. Le Web Push

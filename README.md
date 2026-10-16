@@ -46,8 +46,9 @@ Elle s'appuie sur [sshx (fork CATIE)](../sshx) sans le remplacer :
   une machine partagée. Taille du texte du terminal et largeur de la liste réglables.
 - **Machines** : jetons d'enrôlement par machine, rotation, révocation, partage chiffré avec
   d'autres utilisateurs (machines de projet).
-- **VS Code** à la demande sur les machines lancées avec `sshx --ide`, protégé par un jeton dérivé
-  de la clé de session.
+- **VS Code** : « Ouvrir dans VS Code » ouvre un onglet sur le dossier du terminal. OpenVSCode
+  Server s'installe sur la machine à la première ouverture (`sshx --no-ide` pour refuser), protégé par
+  un jeton dérivé de la clé de session.
 - **Administration** : utilisateurs, machines et sessions (métadonnées uniquement).
 - **Connexion** : Microsoft Entra ID (OIDC) ; en attendant, un mode dev sans mot de passe.
 

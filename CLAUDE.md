@@ -41,7 +41,9 @@ scripts/verify.sh             Every check of both repos (npm run verify)
 ## Rules
 
 - Never send plaintext terminal data, paths, branch names, agent text or custom names to the
-  server: seal them (`crypto.ts` / `platform.rs`) with an AAD naming their slot.
+  server: seal them (`crypto.ts` / `platform.rs`) with an AAD naming their slot. Sole exception:
+  "Ouvrir dans VS Code" (`TerminalPane.svelte`) talks to sshx-server's `/ide/s/` tunnel in plaintext,
+  folder included (see `docs/architecture.md`).
 - Keep `crypto.ts` and `sshx/crates/sshx/src/platform.rs` byte-compatible; update the shared vector
   in both test suites if the format changes.
 - State-changing browser requests carry `x-sshx-platform: 1` (see `api.ts`).
@@ -73,6 +75,7 @@ npm install && mprocs     # sshx-server + platform + vite (see mprocs.yaml)
 cargo test                # server
 npm test && npm run check # frontend
 npm run e2e               # full-stack scenario (builds sshx, platform and SPA first)
+E2E_IDE=1 npm run e2e     # + opens a real VS Code (downloads its server once, shared via ~/.sshx)
 npm run verify            # everything above, plus sshx's own tests
 npm run build             # SPA into build/, served by the Rust server
 ```

@@ -138,13 +138,20 @@
     }
   }
 
+  /**
+   * VS Code in a new tab, on the terminal's current folder. The machine runs
+   * one OpenVSCode Server per session (IDE 1), installed on first use; IDE
+   * traffic goes to the sshx server directly, unencrypted end to end.
+   */
   async function openIde() {
     if (!item) return;
     try {
       const { key } = await sessionSecret(item.session);
       const origin = new URL(item.session.url).origin;
-      const token = await ideConnectionToken(key);
-      window.open(`${origin}/ide/s/${item.session.name}/1/?tkn=${token}`, "_blank", "noopener");
+      const query = new URLSearchParams({ tkn: await ideConnectionToken(key) });
+      const folder = item.meta?.cwd ?? item.meta?.agent?.cwd;
+      if (folder) query.set("folder", folder);
+      window.open(`${origin}/ide/s/${item.session.name}/1/?${query}`, "_blank", "noopener");
     } catch (err) {
       toastError(err);
     }
@@ -187,10 +194,10 @@
         "separator",
         { label: "Voir la machine en canevas sshx", icon: "canvas", run: openCanvas },
         {
-          label: "Ouvrir VS Code",
+          label: "Ouvrir dans VS Code",
           icon: "code",
           disabled: !$ideAvailable,
-          title: $ideAvailable ? undefined : "Lancez sshx avec --ide sur la machine",
+          title: $ideAvailable ? undefined : "Mettez sshx à jour sur la machine, ou lancez-le avec --ide",
           hint: $ideAvailable ? undefined : "sshx --ide",
           run: openIde,
         },
@@ -267,6 +274,17 @@
         <span class="text-sm text-zinc-500">{$status === "connecting" ? "Connexion…" : $status === "error" ? "Erreur" : "Reconnexion…"}</span>
       {/if}
       {#if !$canWrite}<span class="rounded-md border border-zinc-700 px-1.5 py-0.5 text-xs text-zinc-400" title="Session en lecture seule">Lecture seule</span>{/if}
+      {#if !mobile && $ideAvailable}
+        <button
+          class="icon-btn"
+          title="Ouvrir dans VS Code{item.meta?.cwd ? ` (${shortPath(item.meta.cwd)})` : ''}"
+          aria-label="Ouvrir dans VS Code"
+          data-testid="open-ide"
+          on:click={openIde}
+        >
+          <Icon name="code" size={18} />
+        </button>
+      {/if}
       {#if !mobile}
         <button class="icon-btn" title="Nouveau terminal sur {item.machine.name} ({$shortcutLabels.new})" aria-label="Nouveau terminal" on:click={() => item && dispatch("create", item)}>
           <Icon name="plus" size={18} />
