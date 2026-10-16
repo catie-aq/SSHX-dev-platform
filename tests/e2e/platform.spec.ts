@@ -411,14 +411,43 @@ test("7b. raccourcis en BÉPO : la lettre imprimée sur la touche", async ({ bro
   await page.context().close();
 });
 
-test("8. fermeture d'un terminal depuis son menu", async () => {
+test("8. fermeture depuis le menu du terminal, puis par la croix de la liste", async () => {
+  // A throwaway terminal, closed from its pane menu.
   await row(alice, keys.second!).click();
-  await pane(alice, keys.second!).getByTestId("pane-menu").click();
+  await pane(alice, keys.second!).locator(".xterm").click();
+  await alice.keyboard.press(MOD + "KeyN");
+  await expect(alice.getByTestId("terminal-row")).toHaveCount(3);
+  await expect.poll(async () => (await paneKeys(alice))[0]).not.toBe(keys.second);
+  const extra = (await paneKeys(alice))[0];
+  await pane(alice, extra).getByTestId("pane-menu").click();
   await shot(alice, "10-menu-terminal");
   await alice.getByRole("menuitem", { name: "Fermer le terminal" }).click();
   await alice.getByTestId("confirm-close").click();
+  await expect(row(alice, extra)).toHaveCount(0);
+
+  // The cross on a row asks inline: Escape and a click elsewhere cancel.
+  const target = row(alice, keys.second!);
+  const confirm = target.getByTestId("row-confirm-close");
+  await target.hover();
+  await target.getByTestId("row-close").click();
+  await expect(target.getByTestId("row-confirm-close-button")).toBeFocused();
+  await shot(alice, "10b-fermer-depuis-la-liste");
+  await alice.keyboard.press("Escape");
+  await expect(confirm).toHaveCount(0);
+  await target.hover();
+  await target.getByTestId("row-close").click();
+  await expect(confirm).toBeVisible();
+  await row(alice, keys.first!).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(target).toHaveCount(1);
+
+  // Enter confirms.
+  await target.hover();
+  await target.getByTestId("row-close").click();
+  await alice.keyboard.press("Enter");
   await expect(row(alice, keys.second!)).toHaveCount(0);
   await expect(alice.getByTestId("terminal-row")).toHaveCount(1);
+  expect((await paneKeys(alice))[0]).toBe(keys.first);
 });
 
 test("9. nouvel appareil en affichage mobile", async ({ browser }) => {
@@ -525,6 +554,21 @@ test("12. machine arrêtée (Ctrl-C) puis relancée", async () => {
 });
 
 test("13. ajout d'une machine depuis la barre latérale, page d'administration", async () => {
+  // The header (name, live dot, new terminal button) fits the narrowest list.
+  const handle = alice.getByTitle("Redimensionner");
+  const box = (await handle.boundingBox())!;
+  await alice.mouse.move(box.x + box.width / 2, box.y + 200);
+  await alice.mouse.down();
+  await alice.mouse.move(100, box.y + 200, { steps: 5 });
+  await alice.mouse.up();
+  const header = alice.getByTestId("sidebar").locator("> div").first();
+  await expect.poll(() => header.evaluate((el) => el.getBoundingClientRect().width)).toBe(240);
+  expect(await header.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(alice.getByTestId("new-terminal")).toHaveText("");
+  await shot(alice, "14b-liste-etroite");
+  await handle.dblclick();
+  await expect(alice.getByTestId("new-terminal")).toHaveText("Terminal");
+
   await alice.getByTestId("user-menu").click();
   await alice.getByRole("menuitem", { name: "Ajouter une machine…" }).click();
   await expect(alice.getByRole("dialog", { name: "Ajouter une machine" })).toBeVisible();

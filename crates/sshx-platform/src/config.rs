@@ -14,7 +14,7 @@ pub enum AuthMode {
     Oidc,
 }
 
-/// Multi-user web platform for persistent sshx terminals and AI agents.
+/// SSHX Platform: multi-user web platform for persistent sshx terminals and AI agents.
 #[derive(Parser, Debug, Clone)]
 #[clap(version, about)]
 pub struct Config {

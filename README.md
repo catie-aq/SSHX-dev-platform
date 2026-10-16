@@ -1,8 +1,8 @@
-# sshx platform
+# SSHX Platform
 
-Plateforme web multi-utilisateurs pour **travailler dans des terminaux persistants** sur un parc de
-machines (personnelles, de projet, ou le PC local), avec un suivi clair des **agents IA** :
-travail en cours, question posée, autorisation demandée, travail terminé.
+**SSHX Platform** est une plateforme web multi-utilisateurs pour **travailler dans des terminaux
+persistants** sur un parc de machines (personnelles, de projet, ou le PC local), avec un suivi clair
+des **agents IA** : travail en cours, question posée, autorisation demandée, travail terminé.
 
 Elle s'appuie sur [sshx (fork CATIE)](../sshx) sans le remplacer :
 
@@ -14,7 +14,8 @@ Elle s'appuie sur [sshx (fork CATIE)](../sshx) sans le remplacer :
 
 - **Liste de terminaux à gauche**, groupée par projet (dépôt git ou nom de dossier, identique d'une
   machine à l'autre) ou par machine. Tri par glisser-déposer, épinglage, renommage (double-clic),
-  filtre, sessions hors ligne affichées en grisé.
+  fermeture par la croix de la ligne (avec confirmation), filtre, sessions hors ligne affichées en
+  grisé.
 - **Un terminal plein écran à la fois**, avec l'écho prédictif et les thèmes de sshx.
 - **Raccourcis clavier**, actifs même quand le terminal a le clavier et jamais envoyés au shell.
   Le modificateur est ⌃⌥ sur Mac (⌥ seul sert à taper « } », « ~ », « [ »… en BÉPO et en AZERTY) et
@@ -149,8 +150,9 @@ jetable et de vrais clients sshx, avec un `HOME` temporaire (vos `~/.sshx` et `~
 pas touchés), puis pilote Chromium sans interface : connexion, phrase secrète, commande
 d'enrôlement copiée depuis la page et exécutée, saisie dans le terminal, `sshx platform status`,
 états Claude rejoués par les vrais hooks (`sshx hook claude`), non-lu et notification,
-renommage chiffré (vérifié dans la base), division, fermeture, nouvel appareil mobile, partage,
-contrôles d'accès, arrêt et relance de la machine. Les captures d'écran de chaque étape sont dans
+renommage chiffré (vérifié dans la base), raccourcis clavier (QWERTY et BÉPO), fermeture (menu du
+terminal et croix de la liste), nouvel appareil mobile, partage, contrôles d'accès, arrêt et relance
+de la machine. Les captures d'écran de chaque étape sont dans
 `test-results/screens/`.
 
 Première fois : `npx playwright install --only-shell chromium`. Variables utiles : `E2E_SKIP_BUILD=1`

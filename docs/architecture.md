@@ -1,4 +1,4 @@
-# Architecture de la plateforme sshx
+# Architecture de SSHX Platform
 
 ## Vue d'ensemble
 

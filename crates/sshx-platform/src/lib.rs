@@ -109,7 +109,7 @@ pub async fn serve(config: Config) -> Result<()> {
     let state = build_state(config.clone()).await?;
     tokio::spawn(presence_sweeper(state.clone()));
     let listener = tokio::net::TcpListener::bind(config.listen).await?;
-    info!(listen = %listener.local_addr()?, sshx = %config.sshx_server, "sshx platform listening");
+    info!(listen = %listener.local_addr()?, sshx = %config.sshx_server, "SSHX Platform listening");
     axum::serve(listener, app(state)).await?;
     Ok(())
 }

@@ -77,7 +77,7 @@
       {#if $vaultStatus === "none"}
         <div class="mb-5 flex justify-center"><Steps current={2} /></div>
       {:else}
-        <div class="mb-6 flex justify-center"><Logo size={40} label={false} /></div>
+        <div class="mb-6 flex justify-center"><Logo size={40} /></div>
       {/if}
       <div class="panel p-7" data-testid="vault-gate" data-status={$vaultStatus}>
         {#if $vaultStatus === "none"}

@@ -112,5 +112,5 @@ items.subscribe(($items) => {
 // Unread count in the tab title.
 attention.subscribe(($a) => {
   if (typeof document === "undefined") return;
-  document.title = $a.total > 0 ? `(${$a.total}) Terminaux · sshx` : "Terminaux · sshx";
+  document.title = $a.total > 0 ? `(${$a.total}) SSHX Platform` : "SSHX Platform";
 });

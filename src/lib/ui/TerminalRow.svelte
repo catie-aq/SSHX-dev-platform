@@ -21,6 +21,7 @@
     bell: boolean;
     pin: boolean;
     menu: { x: number; y: number };
+    close: void;
     dragstart: DragEvent;
     drop: { event: DragEvent; after: boolean };
   }>();
@@ -29,6 +30,9 @@
   let draft = "";
   let input: HTMLInputElement;
   let dropHint: "before" | "after" | null = null;
+  let row: HTMLElement;
+  let confirming = false;
+  let confirmButton: HTMLButtonElement;
 
   $: unread = needsAttention(item, $lastSeen) && item.state === "done";
   $: urgent = item.state === "question" || item.state === "permission";
@@ -49,6 +53,31 @@
     if (draft.trim() !== (item.customName ?? item.name)) dispatch("rename", draft);
   }
 
+  /** Ask inline before closing: Enter confirms, Escape or a click elsewhere cancels. */
+  export async function askClose() {
+    if (!item.online) return;
+    confirming = true;
+    await tick();
+    confirmButton?.focus();
+  }
+
+  function confirmClose() {
+    confirming = false;
+    dispatch("close");
+  }
+
+  // Capture phase, after the click target is known: the row shrinking cannot
+  // make the click miss what was under the pointer.
+  function onWindowClick(event: MouseEvent) {
+    if (confirming && !row?.contains(event.target as Node)) confirming = false;
+  }
+
+  // `on:click|stopPropagation` without a handler forwards the event in Svelte 3.
+  const stop = (event: Event) => event.stopPropagation();
+  // The confirm buttons stop the click themselves: hiding the strip removes its
+  // listener before the event bubbles there, and the row would select itself.
+  const cancelClose = () => (confirming = false);
+
   function onDragOver(event: DragEvent) {
     event.preventDefault();
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -62,13 +91,18 @@
   }
 </script>
 
+<svelte:window on:click|capture={onWindowClick} />
+
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div
-  class="group relative flex cursor-pointer select-none items-start gap-2.5 rounded-lg px-2.5 transition-colors"
+  bind:this={row}
+  class="group relative flex cursor-pointer select-none items-start gap-2.5 rounded-lg px-2.5 transition-colors {confirming
+    ? 'bg-red-950/40 ring-1 ring-inset ring-red-900/70'
+    : ''}"
   class:py-2={!touch}
   class:py-3={touch}
-  class:bg-zinc-800={selected}
-  class:hover:bg-zinc-900={!selected}
+  class:bg-zinc-800={selected && !confirming}
+  class:hover:bg-zinc-900={!selected && !confirming}
   class:opacity-50={!item.online}
   draggable={!editing}
   data-testid="terminal-row"
@@ -110,7 +144,7 @@
             if (e.key === "Enter") commit();
             if (e.key === "Escape") editing = false;
           }}
-          on:click|stopPropagation
+          on:click={stop}
           autofocus
         />
       {:else}
@@ -128,7 +162,7 @@
         {#if item.pinned}<Icon name="pin" size={12} class="text-zinc-500" />{/if}
         {#if item.bell}<Icon name="bell" size={12} class="text-amber-300" />{/if}
         <span class="flex-1" />
-        {#if when}<span class="shrink-0 text-xs tabular-nums text-zinc-500 group-hover:invisible">{when}</span>{/if}
+        {#if when}<span class="shrink-0 text-xs tabular-nums text-zinc-500 {touch || confirming ? '' : 'group-hover:invisible'}">{when}</span>{/if}
       {/if}
     </div>
     {#if subtitle}<div class="truncate font-mono text-xs leading-5 text-zinc-500">{subtitle}</div>{/if}
@@ -142,8 +176,34 @@
         {detail}
       </div>
     {/if}
+    {#if confirming}
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <div
+        class="mt-2 flex items-center gap-2"
+        data-testid="row-confirm-close"
+        on:click={stop}
+        on:dblclick={stop}
+        on:keydown|stopPropagation={(e) => e.key === "Escape" && cancelClose()}
+      >
+        <span class="min-w-0 flex-1 text-[13px] leading-snug text-red-200">Fermer ce terminal ?</span>
+        <button class="btn px-2.5 py-1 text-[13px]" on:click|stopPropagation={cancelClose}>Annuler</button>
+        <button bind:this={confirmButton} class="btn-danger px-2.5 py-1 text-[13px]" on:click|stopPropagation={confirmClose} data-testid="row-confirm-close-button">
+          Fermer
+        </button>
+      </div>
+    {/if}
   </div>
-  {#if touch && !editing}
+  {#if touch && !editing && !confirming}
+    {#if item.online}
+      <button
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 active:bg-zinc-800"
+        aria-label="Fermer le terminal"
+        data-testid="row-close"
+        on:click|stopPropagation={askClose}
+      >
+        <Icon name="x" size={18} stroke={2.4} />
+      </button>
+    {/if}
     <button
       class="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 active:bg-zinc-800"
       aria-label="Actions"
@@ -151,7 +211,7 @@
     >
       <Icon name="more" size={18} stroke={2.6} />
     </button>
-  {:else if !editing}
+  {:else if !editing && !confirming}
     <div class="absolute right-1.5 top-1.5 hidden items-center rounded-md bg-zinc-800 shadow group-hover:flex">
       <button
         class="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-700"
@@ -181,6 +241,17 @@
       >
         <Icon name="more" size={16} stroke={2.6} />
       </button>
+      {#if item.online}
+        <button
+          class="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-red-950 hover:text-red-300"
+          title="Fermer le terminal"
+          aria-label="Fermer le terminal"
+          data-testid="row-close"
+          on:click|stopPropagation={askClose}
+        >
+          <Icon name="x" size={16} stroke={2.4} />
+        </button>
+      {/if}
     </div>
   {/if}
 </div>

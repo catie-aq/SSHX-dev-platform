@@ -172,6 +172,10 @@
   let menu: { x: number; y: number; items: MenuItem[]; alignRight?: boolean; above?: boolean } | null = null;
   let rows: Record<string, TerminalRow> = {};
 
+  // The name and the labelled "Terminal" button need about 285px (Inter is bundled).
+  let headerWidth = 300;
+  $: narrowHeader = headerWidth < 292;
+
   async function toggleBell(item: TermItem, on: boolean) {
     if (on) await requestNotificationPermission();
     setBell(item, on).catch(toastError);
@@ -196,7 +200,7 @@
         { label: "Voir la machine en canevas sshx", icon: "canvas", run: () => dispatch("action", { kind: "canvas", item }) },
         { label: "Copier le lien sshx", icon: "share", run: () => dispatch("action", { kind: "share", item }) },
         "separator",
-        { label: "Fermer le terminal", icon: "x", danger: true, run: () => dispatch("action", { kind: "close", item }) },
+        { label: "Fermer le terminal", icon: "x", danger: true, run: () => rows[item.key]?.askClose() },
       );
     } else {
       list.push({ label: "Oublier cette session", icon: "trash", danger: true, run: () => dispatch("action", { kind: "forget", item }) });
@@ -270,18 +274,27 @@
 
 <aside class="flex h-full min-h-0 flex-col bg-zinc-950" data-testid="sidebar">
   <!-- Header -->
-  <div class="flex h-14 shrink-0 items-center gap-2 px-4">
-    <Logo size={26} />
-    <span
-      class="mt-0.5 h-2 w-2 rounded-full"
-      class:bg-emerald-400={$eventsConnected}
-      class:bg-zinc-600={!$eventsConnected}
-      title={$eventsConnected ? "Temps réel connecté" : "Reconnexion…"}
-    />
+  <div class="flex h-14 shrink-0 items-center gap-2 px-4" bind:clientWidth={headerWidth}>
+    <Logo size={26}>
+      <span
+        class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-zinc-950"
+        class:bg-emerald-400={$eventsConnected}
+        class:bg-zinc-600={!$eventsConnected}
+        title={$eventsConnected ? "Temps réel connecté" : "Reconnexion…"}
+      />
+    </Logo>
     <div class="flex-1" />
-    <button class="btn-primary px-2.5 py-1.5" on:click={newTerminal} title="Nouveau terminal ({$shortcutLabels.new})" data-testid="new-terminal">
+    <button
+      class="btn-primary py-1.5"
+      class:px-2.5={!narrowHeader}
+      class:px-2={narrowHeader}
+      on:click={newTerminal}
+      title="Nouveau terminal ({$shortcutLabels.new})"
+      aria-label="Nouveau terminal"
+      data-testid="new-terminal"
+    >
       <Icon name="plus" size={16} stroke={2.4} />
-      Terminal
+      {#if !narrowHeader}Terminal{/if}
     </button>
   </div>
 
@@ -349,6 +362,7 @@
           on:bell={(e) => toggleBell(item, e.detail)}
           on:pin={(e) => setPinned(item, e.detail).catch(toastError)}
           on:menu={(e) => openRowMenu(item, e.detail)}
+          on:close={() => dispatch("action", { kind: "close", item })}
           on:dragstart={() => (dragKey = item.key)}
           on:drop={(e) => drop(pinned, item, e.detail.after)}
         />
@@ -399,6 +413,7 @@
             on:bell={(e) => toggleBell(item, e.detail)}
             on:pin={(e) => setPinned(item, e.detail).catch(toastError)}
             on:menu={(e) => openRowMenu(item, e.detail)}
+          on:close={() => dispatch("action", { kind: "close", item })}
             on:dragstart={() => (dragKey = item.key)}
             on:drop={(e) => drop(group.items, item, e.detail.after)}
           />

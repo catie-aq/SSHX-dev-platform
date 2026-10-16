@@ -32,7 +32,7 @@
 
 <div class="flex min-h-dvh items-center justify-center p-4">
   <div class="w-full max-w-[400px]">
-    <div class="mb-6 flex justify-center"><Logo size={40} label={false} /></div>
+    <div class="mb-6 flex justify-center"><Logo size={40} /></div>
     <div class="panel p-7">
       <h1 class="text-center text-xl font-semibold text-zinc-50">Vos terminaux, partout</h1>
       <p class="mt-2 text-center text-[15px] leading-relaxed text-zinc-400">

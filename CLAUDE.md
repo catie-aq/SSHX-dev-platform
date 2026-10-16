@@ -1,6 +1,7 @@
-# CLAUDE.md — sshx platform
+# CLAUDE.md — SSHX Platform
 
-Multi-user web platform listing the terminals of many machines, with AI agent states. Built on
+SSHX Platform is the product name (UI, titles, docs); the CLI stays `sshx`. Multi-user web
+platform listing the terminals of many machines, with AI agent states. Built on
 top of [sshx](../sshx) (CATIE fork, branch `platform`), which must be checked out next to this repo.
 Read `docs/architecture.md` (French) for the design and security model.
 
